@@ -159,12 +159,12 @@ int main(int argc, char **argv)
 	double xinc = (xmax - xmin) / (w - 1);
 	double yinc = (ymax - ymin) / (h - 1);
 
-	/* show parameters, for verification */
+	/* show parameters, for verification
 	fprintf(stderr, "Domain: [%g,%g] x [%g,%g]\n", xmin, ymin, xmax, ymax);
 	fprintf(stderr, "Increment: %g, %g\n", xinc, yinc);
 	fprintf(stderr, "depth: %d\n", depth);
 	fprintf(stderr, "Image size: %d x %d\n", w, h);
-
+  */
 	/* Allocate memory for the output array */
 	unsigned char *image = malloc(w * h);
 	if (image == NULL) {
@@ -176,8 +176,8 @@ int main(int argc, char **argv)
 	double start = wallclock_time();
 
 	int my_rank; /* rank of the process */
-   	int p; /* number of processes */
-    
+  int p; /* number of processes */
+	  
 	MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &p);
 
@@ -194,6 +194,10 @@ int main(int argc, char **argv)
 		}	
 	}
 
+  /* stop timer for this process */
+  double end = wallclock_time();
+  double local_time = end - start;
+
 	unsigned char* reduced_image;
 
 
@@ -202,14 +206,18 @@ int main(int argc, char **argv)
 	}
 
 	MPI_Reduce(image, reduced_image, h*w, MPI_UNSIGNED_CHAR, MPI_SUM, 0, MPI_COMM_WORLD);
+  
+	/* Find the minimum and maximum computation time across all processes */
+  double min_time, max_time;
+  MPI_Reduce(&local_time, &min_time, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
+  MPI_Reduce(&local_time, &max_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
 
-
-	/* stop timer */
-	double end = wallclock_time();
-	fprintf(stderr, "Total computing time: %g sec\n", end - start);
+	fprintf(stderr, "Rank %d total computing time: %g sec\n", my_rank, end - start);
 
 	if(my_rank==0){
-		
+
+	  fprintf(stderr, "Shortest computation time: %g sec\n", min_time);
+    fprintf(stderr, "Longest computation time: %g sec\n", max_time);	
 		/* Save the image in the output file "mandel.ras" */
 		save_rasterfile("mandel.ras", w, h, image);
 
