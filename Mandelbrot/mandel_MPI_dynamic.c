@@ -178,7 +178,7 @@ int main(int argc, char **argv)
 	int my_rank; /* rank of the process */
    	int p; /* number of processes */
     
-	int size_work_package = 200000;
+	int size_work_package = 1000000;
  
 	MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &p);
@@ -277,10 +277,8 @@ int main(int argc, char **argv)
 
 	/* stop timer */
 	double end = wallclock_time();
-	fprintf(stderr, "Total computing time: %g sec\n", end - start);
-
 	if(my_rank==0){
-		
+		fprintf(stderr, "Total computing time: %g sec\n", end - start);
 		/* Save the image in the output file "mandel.ras" */
 		save_rasterfile("mandel.ras", w, h, reduced_image);
 	}
