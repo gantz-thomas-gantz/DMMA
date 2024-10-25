@@ -317,6 +317,8 @@ int *init_neighbors(struct ijk_index *rank_root_map, int p, int my_rank,
 	struct ijk_index back_root = add(my_root, back);
 	int back_rank = get_rank(rank_root_map, p, back_root);
 	neighbors[5] = back_rank;
+
+	return neighbors;
 }
 
 int main() {
@@ -371,13 +373,6 @@ int main() {
 	int *block_m;
 	int *block_o;
 	compute_cube_dims(p, n, m, o, block_n, block_m, block_o);
-	// TODO: The domain can be extended to include the surfaces of the
-	// neighboring cubes. Bear in mind the special cases for the boundaries
-	// of the global domain.
-	double *block_T =
-	    malloc(block_n * block_m * block_o * sizeof(*block_T));
-	double *block_R =
-	    malloc(block_n * block_m * block_o * sizeof(*block_R));
 
 	// Initialize map from rank to their local cube root indices
 	struct ijk_index *rank_root_map =
@@ -387,23 +382,56 @@ int main() {
 	int *neighbors = init_neighbors(rank_root_map, p, my_rank, block_o,
 					block_m, block_n, o, m, n);
 
+	// The domain can be extended to include the surfaces of the
+	// neighboring cubes. Bear in mind the special cases for the boundaries
+	// of the global domain.
+	int right_offset = (neighbors[0]!=-1);
+	int left_offset = (neighbors[1]!=-1);
+	int up_offset = (neighbors[2]!=-1);
+	int down_offset = (neighbors[3]!=-1);
+	int front_offset = (neighbors[4]!=-1);
+	int back_offset = (neighbors[5]!=-1);
+
+
+	double *block_T =
+	    malloc((block_n+right_offset+left_offset)*(block_m+up_offset+down_offset)*(block_o+front_offset+back_offset) * sizeof(*block_T));
+	double *block_R =
+	    malloc((block_n+right_offset+left_offset)*(block_m+up_offset+down_offset)*(block_o+front_offset+back_offset)  * sizeof(*block_R));
+
 	/* simulating time steps */
 	while (convergence == 0) {
 		// Update all cells.//
 
 		// TODO: HERE exchange halos. Bear in mind the send-receive and
 		// the pattern to avoid deadlocks.
-		// TODO: This loop needs to be adapted so that only the inner
+
+		// Exchange with right neigbor
+
+		// Still need to adapt stride, block_T+block_n respecting the neighbors !!!
+			MPI_Status status;
+			double* sendbuf = malloc(sizeof(double)*block_m*block_o);
+			double* recvbuf = malloc(sizeof(double)*block_m*block_o);
+			// Send my right y,z plane to my right neigbour and receive left y,z plane of my right neighbour 
+			cblas_dcopy(block_m*block_o, block_T+block_n, block_n, double *sendbuf, 1);
+			int MPI_Sendrecv(*sendbuf, block_m*block_o, MPI_DOUBLE,
+				neighbor[0], 0, *recvbuf, block_m*block_o,
+				MPI_DOUBLE, my_rank, 0,
+				MPI_COMM_WORLD, &status)
+			// Map recvbuf to my block_T
+			cblas_dcopy(block_m*block_o, recvbuf, 1, block_T+block_n, block_n);
+				
+		
+		// This loop needs to be adapted so that only the inner
 		// values of the cube are cokmputed (and not the surface values
 		// of the neighbors).
-		for (int k = 0; k < block_o; k++) {  // z
+		for (int k = back_offset; k < block_o + back_offset; k++) {  // z
 			if (k == 0)
 				// we do not modify the z = 0 plane: it is
 				// maintained a t constant temperature via
 				// water-cooling
 				return;
-			for (int j = 0; j < block_m; j++) {	     // y
-				for (int i = 0; i < block_n; i++) {  // x
+			for (int j = down_offset; j < block_m + down_offset; j++) {	     // y
+				for (int i = left_offset; i < block_n + left_offset; i++) {  // x
 					int u = k * block_o * block_m +
 						j * block_n + i;
 					block_R[u] = update_temperature(
