@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.12)
+project(final_project)
+find_package(MPI)
+include_directories(SYSTEM ${MPI_INCLUDE_PATH})
+add_executable(test src/mitm.c)
+target_link_libraries(test ${MPI_C_LIBRARIES})
+target_include_directories(test PUBLIC include)

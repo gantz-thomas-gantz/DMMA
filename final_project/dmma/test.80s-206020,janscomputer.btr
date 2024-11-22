@@ -1,0 +1,6 @@
+
+test:206020 terminated with signal 11 at PC=56141744ba12 SP=7ffe320f4bf0.  Backtrace:
+build/test(+0x2a12)[0x56141744ba12]
+/lib/x86_64-linux-gnu/libc.so.6(+0x29d90)[0x7f916916cd90]
+/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x80)[0x7f916916ce40]
+build/test(+0x12e5)[0x56141744a2e5]
