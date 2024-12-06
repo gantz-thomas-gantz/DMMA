@@ -201,15 +201,20 @@ bool is_good_pair(u64 k1, u64 k2) {
 }
 
 /******************************************************************************/
-
-/* search the "golden collision" */
-int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
+°
+    /* search the "golden collision" */
+    int
+    golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 	double start = wtime();
 	u64 N = 1ull << n;
 	for (u64 x = (my_rank * N) / p; x < ((my_rank + 1) * N) / p;
 	     x++) {  // loop over all possible combinations x (in decimal)
 		u64 z = f(x);
-		dict_insert(z, x);
+		if (z % my_rank == 0) {
+			dict_insert(z, x);
+		} else {
+			// Send to process p s.t. z%p==0
+		}
 	}
 
 	double mid = wtime();
@@ -219,17 +224,51 @@ int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 	u64 ncandidates = 0;
 	u64 x[256];
 	u64 k1[16], k2[16];
-	for (u64 z = 0; z < N; z++) {
-		u64 y = g(z);
-		int nx = dict_probe(y, 256, x);
+
+	for (u64 y = (my_rank * N) / p; y < ((my_rank + 1) * N) / p; y++) {
+		u64 z = g(y);
+		int dest_rank = z % p;
+		if (dest_rank == my_rank) {
+			// I have it potentially
+
+			int nx = dict_probe(z, 256, x);
+		} else {
+			// Ask process their_rank s.t. z%p==their_rank
+			// He is the only one who potentially has it
+			u64 Z[1];
+			Z[0] = z;
+			MPI_Send(Z, 1, MPI_UINT64_T, dest_rank, 0,
+				 MPI_COMM_WORLD);
+			int NX[1];
+			// He sends how many he has
+			MPI_Recv(NX, 1, MPI_INT, dest_rank, 1, MPI_COMM_WORLD,
+				 status);
+			int nx = NX[0];
+			assert(nx <= 256);
+			// He sends them
+			MPI_Recv(x, nx, MPI_UINT64_T, dest_rank, 2,
+				 MPI_COMM_WORLD, status);
+		}
+		int sender[1];
+		MPI_Recv(sender, 1, MPI_INT, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD,
+			 status);
+		int Z[1];
+		MPI_Recv(Z, 1, MPI_UINT64_T, sender[0], 0, MPI_COMM_WORLD,
+			 status);
+		int nx = dict_probe(Z[0], 256, x);
+		// a process waits for everyone while he could actually start
+		// computing with what he has already received (non-blocking)
+
+		// set flag if data from process rank is ready, then check
+		// is_good_pair
 		assert(nx >= 0);
 		ncandidates += nx;
 		for (int i = 0; i < nx; i++)
-			if (is_good_pair(x[i], z)) {
+			if (is_good_pair(x[i], y)) {
 				if (nres == maxres) return -1;
 				k1[nres] = x[i];
-				k2[nres] = z;
-				printf("SOLUTION FOUND!\n");
+				k2[nres] = y;
+				printf("SOLUTION FOUND! by %d \n", my_rank);
 				nres += 1;
 			}
 	}
@@ -345,7 +384,13 @@ int main(int argc, char **argv) {
 
 	/* search */
 	u64 *K1, *K2;
+	double start_time, end_time;
+
+	start_time = MPI_Wtime();
 	int nkey = golden_claw_search(16, &K1, &K2, my_rank, p);
+	end_time = MPI_Wtime();
+	printf("Rank %d: Time taken = %f seconds\n", my_rank,
+	       end_time - start_time);
 
 	if (my_rank == 0) {
 		assert(nkey > 0);

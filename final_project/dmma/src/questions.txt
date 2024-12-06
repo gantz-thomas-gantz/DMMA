@@ -1,0 +1,11 @@
+1. The v2 code is not working, why?
+
+doesn't work with: mpiexec -n 10 ./v2 ./mitm --n 10 --C0 b6d4ef6993896824 --C1 e685cf6c3b1ff7a5 
+works with: : mpiexec -n <2|3> ./v2 ./mitm --n 10 --C0 b6d4ef6993896824 --C1 e685cf6c3b1ff7a5
+
+2. Can it be actually faster?
+Effectively every process is looking for every y. In v2 we just do the send
+first.
+
+3. Is it true that we need to search in all the local dictionaries?
+
