@@ -3,7 +3,7 @@
 
 #include "utilities.h"
 
-u64 *exchange_z(struct u64_darray *Z, int p, int my_rank) {
+int exchange(u64 **Z_recv, struct u64_darray *Z, int p, int my_rank) {
 	/* STEP 1:
 	 * Send z dynamic array values to respective processes.
 	 * a) send sizes first.
@@ -43,7 +43,7 @@ u64 *exchange_z(struct u64_darray *Z, int p, int my_rank) {
 	}
 	int curr_size = 0;
 	Z_recv_size = recv_total_size + Z[my_rank].size;
-	u64 *Z_recv = (u64 *)malloc(sizeof(u64) * Z_recv_size);
+	*Z_recv = (u64 *)malloc(sizeof(u64) * Z_recv_size);
 	// Receive from others.
 	MPI_Status recv_requests[p];
 	for (int sender = 0; sender < p && sender != my_rank; sender++) {
@@ -71,5 +71,5 @@ u64 *exchange_z(struct u64_darray *Z, int p, int my_rank) {
 	for (int sender = 0; sender < p && sender != my_rank; sender++)
 		MPI_Wait(recv_requests[sender], MPI_STATUS_IGNORE);
 
-	return Z_recv;
+	return Z_recv_size;
 }
