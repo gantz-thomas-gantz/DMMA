@@ -1,6 +1,0 @@
-
-test:205861 terminated with signal 11 at PC=555b9ae809f9 SP=7ffd564b8290.  Backtrace:
-build/test(+0x29f9)[0x555b9ae809f9]
-/lib/x86_64-linux-gnu/libc.so.6(+0x29d90)[0x7fc6dbb6ad90]
-/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x80)[0x7fc6dbb6ae40]
-build/test(+0x12e5)[0x555b9ae7f2e5]

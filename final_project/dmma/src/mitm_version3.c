@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <sys/time.h>
 
+#include "utilities.h"
+
 typedef uint64_t u64; /* portable 64-bit integer */
 typedef uint32_t u32; /* portable 32-bit integer */
 struct __attribute__((packed)) entry {
@@ -224,43 +226,57 @@ bool is_good_pair(u64 k1, u64 k2) {
 	u64 ncandidates = 0;
 	u64 x[256];
 	u64 k1[16], k2[16];
-
+	int *sizes = (int *)calloc(p, sizeof(int));
+	// TODO: Create array of dynamic arrays for each rank for Z.
+	u64 *Z = (u64 *)malloc(p * sizeof(struct));
+	struct u64_darray *Z_work = create_u64_darray(N / p);
 	for (u64 y = (my_rank * N) / p; y < ((my_rank + 1) * N) / p; y++) {
 		u64 z = g(y);
 		int dest_rank = z % p;
-		if (dest_rank == my_rank) {
-			// I have it potentially
-
-			int nx = dict_probe(z, 256, x);
-		} else {
+		if (dest_rank != my_rank) {
 			// Ask process their_rank s.t. z%p==their_rank
 			// He is the only one who potentially has it
-			u64 Z[1];
-			Z[0] = z;
-			MPI_Send(Z, 1, MPI_UINT64_T, dest_rank, 0,
-				 MPI_COMM_WORLD);
-			int NX[1];
-			// He sends how many he has
-			MPI_Recv(NX, 1, MPI_INT, dest_rank, 1, MPI_COMM_WORLD,
-				 status);
-			int nx = NX[0];
-			assert(nx <= 256);
-			// He sends them
-			MPI_Recv(x, nx, MPI_UINT64_T, dest_rank, 2,
-				 MPI_COMM_WORLD, status);
+			int Z_start = (N / p) * dest_rank;
+			Z[Z_start + size[dest_rank]++] = z;
+		} else
+			append(Z_work, z);
+	}
+	for (int dest_rank = 0; dest_rank < p && dest_rank != my_rank;
+	     dest_rank++) {
+		int sender_packet[2];
+		sender_packet[0] = my_rank;
+		sender_packet[1] = size[dest_rank];
+		MPI_Isend(sender_packet, 2, MPI_INT, dest_rank, 0,
+			  MPI_COMM_WORLD);
+		int Z_start = (N / p) * dest_rank;
+		MPI_Isend(Z_start, size[dest_rank], MPI_UINT64_T, dest_rank, 1,
+			  MPI_COMM_WORLD);
+	}
+	MPI_Request request;
+	MPI_Status status;
+	for (int rank = 0; rank < p - 1; rank++) {
+		// sender_packet[0]: source, sender_packet[1]: msg size
+		int sender_packet[2];
+		MPI_Irecv(sender_packet, 2, MPI_INT, MPI_ANY_SOURCE, 0,
+			  MPI_COMM_WORLD, request);
+		MPI_Wait(&status, &request);
+		u64 *Z_rank = (u64 *)malloc(sizeof(u64) * sender_packet[1]);
+		MPI_Irecv(Z, sender_packet[1], MPI_UINT64_T, sender_packet[0],
+			  0, MPI_COMM_WORLD, request);
+		MPI_Wait(&status, &request);
+		for (int i = 0; i < sender_packet[1]; i++) {
+			Z_work[Z_work_size++] = Z_rank[i];
 		}
-		int sender[1];
-		MPI_Recv(sender, 1, MPI_INT, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD,
-			 status);
-		int Z[1];
-		MPI_Recv(Z, 1, MPI_UINT64_T, sender[0], 0, MPI_COMM_WORLD,
-			 status);
-		int nx = dict_probe(Z[0], 256, x);
-		// a process waits for everyone while he could actually start
-		// computing with what he has already received (non-blocking)
+	}
+	for (int i = 0; i < Z_work_size; i++) {
+		z = Z_work[i];
+		int nx = dict_probe(z, 256, x);
+		// a process waits for everyone while he could actually
+		// start computing with what he has already received
+		// (non-blocking)
 
-		// set flag if data from process rank is ready, then check
-		// is_good_pair
+		// set flag if data from process rank is ready, then
+		// check is_good_pair
 		assert(nx >= 0);
 		ncandidates += nx;
 		for (int i = 0; i < nx; i++)
@@ -272,50 +288,47 @@ bool is_good_pair(u64 k1, u64 k2) {
 				nres += 1;
 			}
 	}
-	int *global_nres =
-	    NULL;	     // Array to store nres values from each process
-	int *displs = NULL;  // Array to store displacements for gathered data
-	// Root process allocates space for recv_counts and displs
-	if (my_rank == 0) {
-		global_nres = malloc(p * sizeof(int));
-		displs = malloc(p * sizeof(int));
+}
+int *global_nres = NULL;  // Array to store nres values from each process
+int *displs = NULL;	  // Array to store displacements for gathered data
+// Root process allocates space for recv_counts and displs
+if (my_rank == 0) {
+	global_nres = malloc(p * sizeof(int));
+	displs = malloc(p * sizeof(int));
+}
+// Gather nres from all processes to the root
+MPI_Gather(&nres, 1, MPI_INT, global_nres, 1, MPI_INT, 0, MPI_COMM_WORLD);
+// Calculate displacements and total size of gathered arrays on the root
+// process
+int total_nres = 0;
+if (my_rank == 0) {
+	displs[0] = 0;
+	for (int i = 0; i < p; i++) {
+		total_nres += global_nres[i];
+		if (i > 0) displs[i] = displs[i - 1] + global_nres[i - 1];
 	}
-	// Gather nres from all processes to the root
-	MPI_Gather(&nres, 1, MPI_INT, global_nres, 1, MPI_INT, 0,
-		   MPI_COMM_WORLD);
-	// Calculate displacements and total size of gathered arrays on the root
-	// process
-	int total_nres = 0;
-	if (my_rank == 0) {
-		displs[0] = 0;
-		for (int i = 0; i < p; i++) {
-			total_nres += global_nres[i];
-			if (i > 0)
-				displs[i] = displs[i - 1] + global_nres[i - 1];
-		}
-		// Allocate global arrays on the root process
-		*K1 = malloc(total_nres * sizeof(u64));
-		*K2 = malloc(total_nres * sizeof(u64));
+	// Allocate global arrays on the root process
+	*K1 = malloc(total_nres * sizeof(u64));
+	*K2 = malloc(total_nres * sizeof(u64));
+}
+// Gather k1 and k2 from all processes into K1 and K2 on the root
+MPI_Gatherv(k1, nres, MPI_UNSIGNED_LONG_LONG, *K1, global_nres, displs,
+	    MPI_UNSIGNED_LONG_LONG, 0, MPI_COMM_WORLD);
+MPI_Gatherv(k2, nres, MPI_UNSIGNED_LONG_LONG, *K2, global_nres, displs,
+	    MPI_UNSIGNED_LONG_LONG, 0, MPI_COMM_WORLD);
+// Root process can now use the gathered results
+if (my_rank == 0) {
+	printf("Total results gathered: %d\n", total_nres);
+	for (int i = 0; i < total_nres; i++) {
+		printf("K1[%d] = %lu, K2[%d] = %lu\n", i, *K1[i], i, *K2[i]);
 	}
-	// Gather k1 and k2 from all processes into K1 and K2 on the root
-	MPI_Gatherv(k1, nres, MPI_UNSIGNED_LONG_LONG, *K1, global_nres, displs,
-		    MPI_UNSIGNED_LONG_LONG, 0, MPI_COMM_WORLD);
-	MPI_Gatherv(k2, nres, MPI_UNSIGNED_LONG_LONG, *K2, global_nres, displs,
-		    MPI_UNSIGNED_LONG_LONG, 0, MPI_COMM_WORLD);
-	// Root process can now use the gathered results
-	if (my_rank == 0) {
-		printf("Total results gathered: %d\n", total_nres);
-		for (int i = 0; i < total_nres; i++) {
-			printf("K1[%d] = %lu, K2[%d] = %lu\n", i, *K1[i], i,
-			       *K2[i]);
-		}
 
-		/*
-		printf("Probe: %.1fs. %" PRId64 " candidate pairs tested\n",
-		       wtime() - mid, ncandidates);
-		*/
-	}
-	return total_nres;
+	/*
+	printf("Probe: %.1fs. %" PRId64 " candidate pairs tested\n",
+	       wtime() - mid, ncandidates);
+	*/
+}
+return total_nres;
 }
 /************************** command-line options
  * ****************************/
