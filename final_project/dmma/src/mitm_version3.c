@@ -209,6 +209,12 @@ bool is_good_pair(u64 k1, u64 k2) {
     golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 	double start = wtime();
 	u64 N = 1ull << n;
+
+	/* STEP 1: Build partitioned dictionary.
+	 * Logical step: Process i holds all keys respective to their rank
+	 * (key % i == 0).*/
+	// TODO: finish building local dictionaries.
+	// TODO: OPENMP? AVX?
 	for (u64 x = (my_rank * N) / p; x < ((my_rank + 1) * N) / p;
 	     x++) {  // loop over all possible combinations x (in decimal)
 		u64 z = f(x);
@@ -226,50 +232,104 @@ bool is_good_pair(u64 k1, u64 k2) {
 	u64 ncandidates = 0;
 	u64 x[256];
 	u64 k1[16], k2[16];
-	int *sizes = (int *)calloc(p, sizeof(int));
-	// TODO: Create array of dynamic arrays for each rank for Z.
-	u64 *Z = (u64 *)malloc(p * sizeof(struct));
-	struct u64_darray *Z_work = create_u64_darray(N / p);
+
+	/* STEP 2:
+	 * Attribute zs to their repective processes.
+	 * Logical step: Look for the key in the dictionary of the process who
+	 * could potentially have it (dest_rank = z % p).
+	 * Since we don't know exactly how many there are per process, we use
+	 * dynammic arrays and initialize them to their expected capacity
+	 * (N/(p*p)). */
+
+	// TODO: Send in smaller batches to occupy less memory.
+	struct u64_darray *Z = malloc(p * sizeof(struct u64_darray));
+	for (int rank = 0; rank < p; rank++)
+		initialize_u64_darray(
+		    Z[rank],
+		    N / (p * p));  // Expected amount of z for each rank
+
+	// TODO: OPENMP? append critical?
 	for (u64 y = (my_rank * N) / p; y < ((my_rank + 1) * N) / p; y++) {
 		u64 z = g(y);
 		int dest_rank = z % p;
-		if (dest_rank != my_rank) {
-			// Ask process their_rank s.t. z%p==their_rank
-			// He is the only one who potentially has it
-			int Z_start = (N / p) * dest_rank;
-			Z[Z_start + size[dest_rank]++] = z;
-		} else
-			append(Z_work, z);
+		// Ask process their_rank s.t. z%p==their_rank
+		// He is the only one who potentially has it
+		append(Z[dest_rank], z);
 	}
+
+	/* STEP 3:
+	 * Send zs to respective processes.
+	 * a) send sizes first.
+	 * b) send actual zs from dynamic arrays.
+	 * Immediate sends to avoid deadlocks.*/
+
+	MPI_Request send_request[p];
 	for (int dest_rank = 0; dest_rank < p && dest_rank != my_rank;
 	     dest_rank++) {
 		int sender_packet[2];
 		sender_packet[0] = my_rank;
-		sender_packet[1] = size[dest_rank];
+		sender_packet[1] = Z[dest_rank]->size;
 		MPI_Isend(sender_packet, 2, MPI_INT, dest_rank, 0,
 			  MPI_COMM_WORLD);
-		int Z_start = (N / p) * dest_rank;
-		MPI_Isend(Z_start, size[dest_rank], MPI_UINT64_T, dest_rank, 1,
-			  MPI_COMM_WORLD);
+		MPI_Isend(Z[dest_rank]->data, Z[dest_rank]->size, MPI_UINT64_T,
+			  dest_rank, 1, MPI_COMM_WORLD,
+			  send_request[dest_rank]);
 	}
+
+	/* STEP 4:
+	 * Receive zs to look up in own dictionary.
+	 * a) receive sizes of things to receive.
+	 * b) allocate static array to contain all received zs.
+	 * c) receive actual zs and store them into static array. */
+
 	MPI_Request request;
-	MPI_Status status;
-	for (int rank = 0; rank < p - 1; rank++) {
+	int recv_sizes[p];
+	int recv_total_size = 0;
+	for (int sender = 0; sender < p - 1; sender++) {
 		// sender_packet[0]: source, sender_packet[1]: msg size
 		int sender_packet[2];
 		MPI_Irecv(sender_packet, 2, MPI_INT, MPI_ANY_SOURCE, 0,
 			  MPI_COMM_WORLD, request);
-		MPI_Wait(&status, &request);
-		u64 *Z_rank = (u64 *)malloc(sizeof(u64) * sender_packet[1]);
-		MPI_Irecv(Z, sender_packet[1], MPI_UINT64_T, sender_packet[0],
-			  0, MPI_COMM_WORLD, request);
-		MPI_Wait(&status, &request);
-		for (int i = 0; i < sender_packet[1]; i++) {
-			Z_work[Z_work_size++] = Z_rank[i];
-		}
+		MPI_Wait(&request, MPI_STATUS_IGNORE);
+		recv_sizes[sender_packet[0]] = sender_packet[1];
+		recv_total_size += sender_packet[1];
 	}
-	for (int i = 0; i < Z_work_size; i++) {
-		z = Z_work[i];
+	int curr_size = 0;
+	Z_recv_size = recv_total_size + Z[my_rank].size;
+	u64 *Z_recv = (u64 *)malloc(sizeof(u64) * Z_recv_size);
+	// Receive from others.
+	MPI_Status recv_requests[p];
+	for (int sender = 0; sender < p && sender != my_rank; sender++) {
+		MPI_Irecv(Z_recv + curr_size, recv_sizes[sender], MPI_UINT64_T,
+			  sender, 0, MPI_COMM_WORLD, recv_requests[sender]);
+		curr_size += recv_sizes[sender];
+	}
+
+	/* STEP 5:
+	 * Free dynamic arrays of sent zs only when finished sending.*/
+
+	for (int dest_rank = 0; dest_rank < p && dest_rank != my_rank;
+	     dest_rank++) {
+		MPI_Wait(send_request[dest_rank], MPI_STATUS_IGNORE);
+		free_u64_darray(Z[dest_rank]);
+	}
+	memcpy(Z_recv + curr_size, Z[my_rank].data,
+	       sizeof(u64) * Z[my_rank].size);
+	free_u64_darray(Z[my_rank]);
+	free(Z);
+
+	/* STEP 6:
+	 * Wait until all data is received.*/
+
+	for (int sender = 0; sender < p && sender != my_rank; sender++)
+		MPI_Wait(recv_requests[sender], MPI_STATUS_IGNORE);
+
+	/* STEP 7:
+	 * Now look up my zs in my local dictionaries.*/
+
+	// TODO: OPENMP? AVX?
+	for (int i = 0; i < Z_recv_size; i++) {
+		z = Z_recv[i];
 		int nx = dict_probe(z, 256, x);
 		// a process waits for everyone while he could actually
 		// start computing with what he has already received
@@ -288,47 +348,54 @@ bool is_good_pair(u64 k1, u64 k2) {
 				nres += 1;
 			}
 	}
-}
-int *global_nres = NULL;  // Array to store nres values from each process
-int *displs = NULL;	  // Array to store displacements for gathered data
-// Root process allocates space for recv_counts and displs
-if (my_rank == 0) {
-	global_nres = malloc(p * sizeof(int));
-	displs = malloc(p * sizeof(int));
-}
-// Gather nres from all processes to the root
-MPI_Gather(&nres, 1, MPI_INT, global_nres, 1, MPI_INT, 0, MPI_COMM_WORLD);
-// Calculate displacements and total size of gathered arrays on the root
-// process
-int total_nres = 0;
-if (my_rank == 0) {
-	displs[0] = 0;
-	for (int i = 0; i < p; i++) {
-		total_nres += global_nres[i];
-		if (i > 0) displs[i] = displs[i - 1] + global_nres[i - 1];
-	}
-	// Allocate global arrays on the root process
-	*K1 = malloc(total_nres * sizeof(u64));
-	*K2 = malloc(total_nres * sizeof(u64));
-}
-// Gather k1 and k2 from all processes into K1 and K2 on the root
-MPI_Gatherv(k1, nres, MPI_UNSIGNED_LONG_LONG, *K1, global_nres, displs,
-	    MPI_UNSIGNED_LONG_LONG, 0, MPI_COMM_WORLD);
-MPI_Gatherv(k2, nres, MPI_UNSIGNED_LONG_LONG, *K2, global_nres, displs,
-	    MPI_UNSIGNED_LONG_LONG, 0, MPI_COMM_WORLD);
-// Root process can now use the gathered results
-if (my_rank == 0) {
-	printf("Total results gathered: %d\n", total_nres);
-	for (int i = 0; i < total_nres; i++) {
-		printf("K1[%d] = %lu, K2[%d] = %lu\n", i, *K1[i], i, *K2[i]);
-	}
 
-	/*
-	printf("Probe: %.1fs. %" PRId64 " candidate pairs tested\n",
-	       wtime() - mid, ncandidates);
-	*/
-}
-return total_nres;
+	/* STEP 8:
+	 * Gather all locally found solutions into root.*/
+
+	int *global_nres =
+	    NULL;	     // Array to store nres values from each process
+	int *displs = NULL;  // Array to store displacements for gathered data
+	// Root process allocates space for recv_counts and displs
+	if (my_rank == 0) {
+		global_nres = malloc(p * sizeof(int));
+		displs = malloc(p * sizeof(int));
+	}
+	// Gather nres from all processes to the root
+	MPI_Gather(&nres, 1, MPI_INT, global_nres, 1, MPI_INT, 0,
+		   MPI_COMM_WORLD);
+	// Calculate displacements and total size of gathered arrays on the root
+	// process
+	int total_nres = 0;
+	if (my_rank == 0) {
+		displs[0] = 0;
+		for (int i = 0; i < p; i++) {
+			total_nres += global_nres[i];
+			if (i > 0)
+				displs[i] = displs[i - 1] + global_nres[i - 1];
+		}
+		// Allocate global arrays on the root process
+		*K1 = malloc(total_nres * sizeof(u64));
+		*K2 = malloc(total_nres * sizeof(u64));
+	}
+	// Gather k1 and k2 from all processes into K1 and K2 on the root
+	MPI_Gatherv(k1, nres, MPI_UNSIGNED_LONG_LONG, *K1, global_nres, displs,
+		    MPI_UNSIGNED_LONG_LONG, 0, MPI_COMM_WORLD);
+	MPI_Gatherv(k2, nres, MPI_UNSIGNED_LONG_LONG, *K2, global_nres, displs,
+		    MPI_UNSIGNED_LONG_LONG, 0, MPI_COMM_WORLD);
+	// Root process can now use the gathered results
+	if (my_rank == 0) {
+		printf("Total results gathered: %d\n", total_nres);
+		for (int i = 0; i < total_nres; i++) {
+			printf("K1[%d] = %lu, K2[%d] = %lu\n", i, *K1[i], i,
+			       *K2[i]);
+		}
+
+		/*
+		printf("Probe: %.1fs. %" PRId64 " candidate pairs tested\n",
+		       wtime() - mid, ncandidates);
+		*/
+	}
+	return total_nres;
 }
 /************************** command-line options
  * ****************************/

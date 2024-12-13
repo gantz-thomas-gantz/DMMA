@@ -17,6 +17,12 @@ struct u64 darray *create_u64_darray(int capacity) {
 	return a;
 }
 
+void initialize_u64_darray(struct u64_darray *a, int capacity) {
+	a->capacity = capacity;
+	a->size = 0;
+	a->data = (u64 *)malloc(a->capacity * sizeof(u64));
+}
+
 u64 read(u64_darray *a, int idx) {
 	assert(idx < a->size);
 	return a->data[idx];
@@ -29,6 +35,8 @@ void append(u64_darray *a, u64 val) {
 	}
 	a->data[a->size++] = val;
 }
+
+void clear_u64_darray(struct u64_darray *a) { a->size = 0; }
 
 void free_u64_darray(struct u64_darray *a) {
 	free(a->data);
