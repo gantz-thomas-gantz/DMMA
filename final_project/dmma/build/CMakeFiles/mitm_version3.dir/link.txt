@@ -1,0 +1,1 @@
+/usr/bin/cc  -O3 -Wall -Wextra CMakeFiles/mitm_version3.dir/src/mitm_version3.c.o -o mitm_version3  /usr/lib/x86_64-linux-gnu/libmpich.so

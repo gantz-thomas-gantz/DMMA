@@ -6,5 +6,5 @@ C_DEFINES =
 
 C_INCLUDES = -I/home/janmarxen/MU4IN903/PPAR/final_project/dmma/include -isystem /usr/include/x86_64-linux-gnu/mpich
 
-C_FLAGS = 
+C_FLAGS =  -O3 -Wall -Wextra
 

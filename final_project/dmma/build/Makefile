@@ -48,10 +48,10 @@ cmake_force:
 SHELL = /bin/sh
 
 # The CMake executable.
-CMAKE_COMMAND = /snap/cmake/1429/bin/cmake
+CMAKE_COMMAND = /snap/cmake/1433/bin/cmake
 
 # The command to remove a file.
-RM = /snap/cmake/1429/bin/cmake -E rm -f
+RM = /snap/cmake/1433/bin/cmake -E rm -f
 
 # Escaping for special characters.
 EQUALS = =
@@ -68,7 +68,7 @@ CMAKE_BINARY_DIR = /home/janmarxen/MU4IN903/PPAR/final_project/dmma/build
 # Special rule for the target edit_cache
 edit_cache:
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Running CMake cache editor..."
-	/snap/cmake/1429/bin/ccmake -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
+	/snap/cmake/1433/bin/ccmake -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
 .PHONY : edit_cache
 
 # Special rule for the target edit_cache
@@ -78,7 +78,7 @@ edit_cache/fast: edit_cache
 # Special rule for the target rebuild_cache
 rebuild_cache:
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Running CMake to regenerate build system..."
-	/snap/cmake/1429/bin/cmake --regenerate-during-build -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
+	/snap/cmake/1433/bin/cmake --regenerate-during-build -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
 .PHONY : rebuild_cache
 
 # Special rule for the target rebuild_cache
@@ -117,41 +117,41 @@ depend:
 .PHONY : depend
 
 #=============================================================================
-# Target rules for targets named test
+# Target rules for targets named mitm_version3
 
 # Build rule for target.
-test: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test
-.PHONY : test
+mitm_version3: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 mitm_version3
+.PHONY : mitm_version3
 
 # fast build rule for target.
-test/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/test.dir/build.make CMakeFiles/test.dir/build
-.PHONY : test/fast
+mitm_version3/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mitm_version3.dir/build.make CMakeFiles/mitm_version3.dir/build
+.PHONY : mitm_version3/fast
 
-src/mitm.o: src/mitm.c.o
-.PHONY : src/mitm.o
+src/mitm_version3.o: src/mitm_version3.c.o
+.PHONY : src/mitm_version3.o
 
 # target to build an object file
-src/mitm.c.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/test.dir/build.make CMakeFiles/test.dir/src/mitm.c.o
-.PHONY : src/mitm.c.o
+src/mitm_version3.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mitm_version3.dir/build.make CMakeFiles/mitm_version3.dir/src/mitm_version3.c.o
+.PHONY : src/mitm_version3.c.o
 
-src/mitm.i: src/mitm.c.i
-.PHONY : src/mitm.i
+src/mitm_version3.i: src/mitm_version3.c.i
+.PHONY : src/mitm_version3.i
 
 # target to preprocess a source file
-src/mitm.c.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/test.dir/build.make CMakeFiles/test.dir/src/mitm.c.i
-.PHONY : src/mitm.c.i
+src/mitm_version3.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mitm_version3.dir/build.make CMakeFiles/mitm_version3.dir/src/mitm_version3.c.i
+.PHONY : src/mitm_version3.c.i
 
-src/mitm.s: src/mitm.c.s
-.PHONY : src/mitm.s
+src/mitm_version3.s: src/mitm_version3.c.s
+.PHONY : src/mitm_version3.s
 
 # target to generate assembly for a file
-src/mitm.c.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/test.dir/build.make CMakeFiles/test.dir/src/mitm.c.s
-.PHONY : src/mitm.c.s
+src/mitm_version3.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mitm_version3.dir/build.make CMakeFiles/mitm_version3.dir/src/mitm_version3.c.s
+.PHONY : src/mitm_version3.c.s
 
 # Help Target
 help:
@@ -161,10 +161,10 @@ help:
 	@echo "... depend"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
-	@echo "... test"
-	@echo "... src/mitm.o"
-	@echo "... src/mitm.i"
-	@echo "... src/mitm.s"
+	@echo "... mitm_version3"
+	@echo "... src/mitm_version3.o"
+	@echo "... src/mitm_version3.i"
+	@echo "... src/mitm_version3.s"
 .PHONY : help
 
 

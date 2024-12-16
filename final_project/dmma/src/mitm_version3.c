@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 
+#include "communication.h"
 #include "utilities.h"
 
 typedef uint64_t u64; /* portable 64-bit integer */
@@ -203,49 +204,43 @@ bool is_good_pair(u64 k1, u64 k2) {
 }
 
 /******************************************************************************/
-°
-    /* search the "golden collision" */
-    int
-    golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
+
+/* search the "golden collision" */
+int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 	double start = wtime();
 	u64 N = 1ull << n;
 
 	/* STEP 1: Build partitioned dictionary.
 	 * Logical step: Process i holds all keys respective to their rank
 	 * (key % i == 0).*/
-	// TODO: finish building local dictionaries.
 	// TODO: OPENMP? AVX?
 
-	struct u64_darray *dict = malloc(p * sizeof(struct u64_darray));
+	struct u64_darray *dict_zx = malloc(p * sizeof(struct u64_darray));
 	for (int rank = 0; rank < p; rank++)
 		initialize_u64_darray(
-		    dict[rank],
+		    &(dict_zx[rank]),
 		    2 * N /
 			(p * p));  // Expected amount of z and x for each rank
-
 	// TODO: OPENMP? append critical?
 	for (u64 x = (my_rank * N) / p; x < ((my_rank + 1) * N) / p; x++) {
 		u64 z = f(x);
 		int dest_rank = z % p;
-		append(dict[dest_rank], z);
-		append(dict[dest_rank], x);
+		append(&(dict_zx[dest_rank]), z);
+		append(&(dict_zx[dest_rank]), x);
 	}
 
-	u64 *dict_recv;
-	int dict_recv_size = exchange(&dict_recv, Z, p, my_rank);
+	u64 *dict_zx_recv;
+	printf("Rank: %d. Before dict_zx exchange...\n", my_rank);
+	int dict_zx_recv_size = exchange(&dict_zx_recv, dict_zx, p, my_rank);
+	printf("Rank: %d. After dict_zx exchange.\n", my_rank);
 
-	for (int i = 0; i < dict_recv_size - 1; i += 2)
-		dict_insert(dict_recv[i], dict_recv[i + 1]);
+	for (int i = 0; i < dict_zx_recv_size - 1; i += 2)
+		dict_insert(dict_zx_recv[i], dict_zx_recv[i + 1]);
 
-	free(dict_recv);
+	free(dict_zx_recv);
 
 	double mid = wtime();
 	printf("Fill: %.1fs\n", mid - start);
-
-	int nres = 0;
-	u64 ncandidates = 0;
-	u64 x[256];
-	u64 k1[16], k2[16];
 
 	/* STEP 2:
 	 * Attribute zs to their repective processes.
@@ -255,12 +250,11 @@ bool is_good_pair(u64 k1, u64 k2) {
 	 * dynammic arrays and initialize them to their expected capacity
 	 * (N/(p*p)). */
 
-	// TODO: Send in smaller batches to occupy less memory.
-	struct u64_darray *Z = malloc(p * sizeof(struct u64_darray));
+	struct u64_darray *dict_zy = malloc(p * sizeof(struct u64_darray));
 	for (int rank = 0; rank < p; rank++)
 		initialize_u64_darray(
-		    Z[rank],
-		    N / (p * p));  // Expected amount of z for each rank
+		    &(dict_zy[rank]),
+		    2 * N / (p * p));  // Expected amount of z for each rank
 
 	// TODO: OPENMP? append critical?
 	for (u64 y = (my_rank * N) / p; y < ((my_rank + 1) * N) / p; y++) {
@@ -268,25 +262,28 @@ bool is_good_pair(u64 k1, u64 k2) {
 		int dest_rank = z % p;
 		// Ask process their_rank s.t. z%p==their_rank
 		// He is the only one who potentially has it
-		append(Z[dest_rank], z);
+		append(&(dict_zy[dest_rank]), z);
+		append(&(dict_zy[dest_rank]), y);
 	}
 
-	u64 *Z_recv;
-	int Z_recv_size = exchange(&Z_recv, Z, p, my_rank);
+	u64 *dict_zy_recv;
+
+	printf("Rank: %d. Before dict_zy exchange...\n", my_rank);
+	int dict_zy_recv_size = exchange(&dict_zy_recv, dict_zy, p, my_rank);
+	printf("Rank: %d. After dict_zy exchange.\n", my_rank);
 
 	/* STEP 7:
 	 * Now look up my zs in my local dictionaries.*/
 
 	// TODO: OPENMP? AVX?
-	for (int i = 0; i < Z_recv_size; i++) {
-		z = Z_recv[i];
+	int nres = 0;
+	u64 ncandidates = 0;
+	u64 x[256];
+	u64 k1[16], k2[16];
+	for (int i = 0; i < dict_zy_recv_size; i += 2) {
+		u64 z = dict_zy_recv[i];
+		u64 y = dict_zy_recv[i + 1];
 		int nx = dict_probe(z, 256, x);
-		// a process waits for everyone while he could actually
-		// start computing with what he has already received
-		// (non-blocking)
-
-		// set flag if data from process rank is ready, then
-		// check is_good_pair
 		assert(nx >= 0);
 		ncandidates += nx;
 		for (int i = 0; i < nx; i++)
@@ -298,7 +295,7 @@ bool is_good_pair(u64 k1, u64 k2) {
 				nres += 1;
 			}
 	}
-	free(Z_recv);
+	free(dict_zy_recv);
 
 	/* STEP 8:
 	 * Gather all locally found solutions into root.*/
@@ -373,7 +370,7 @@ void process_command_line_options(int argc, char **argv) {
 		switch (ch) {
 			case 'n':
 				n = atoi(optarg);
-				mask = (1 << n) - 1;
+				mask = (1ull << n) - 1;
 				break;
 			case '0':
 				set |= 1;

@@ -1,0 +1,14 @@
+
+v3:241032 terminated with signal 11 at PC=55cb8cf35541 SP=7ffd259d5f50.  Backtrace:
+./v3(read+0x17)[0x55cb8cf35541]
+/usr/lib/x86_64-linux-gnu/libhwloc.so.15(+0x2c349)[0x7f8ec8095349]
+/usr/lib/x86_64-linux-gnu/libhwloc.so.15(+0x35af1)[0x7f8ec809eaf1]
+/usr/lib/x86_64-linux-gnu/libhwloc.so.15(+0x3ace7)[0x7f8ec80a3ce7]
+/usr/lib/x86_64-linux-gnu/libhwloc.so.15(+0x35f06)[0x7f8ec809ef06]
+/usr/lib/x86_64-linux-gnu/libhwloc.so.15(hwloc_topology_load+0xb0d)[0x7f8ec807a6cd]
+/usr/lib/x86_64-linux-gnu/libmpich.so.12(+0x212f3a6)[0x7f8eca41d3a6]
+/usr/lib/x86_64-linux-gnu/libmpich.so.12(MPI_Init+0xde)[0x7f8ec83d17ee]
+./v3(+0x3502)[0x55cb8cf37502]
+/usr/lib/x86_64-linux-gnu/libc.so.6(+0x29d90)[0x7f8ec80eed90]
+/usr/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x80)[0x7f8ec80eee40]
+./v3(+0x13c5)[0x55cb8cf353c5]
