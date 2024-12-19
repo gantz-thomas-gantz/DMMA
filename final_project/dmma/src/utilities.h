@@ -40,7 +40,4 @@ void append(struct u64_darray *a, u64 val) {
 
 void clear_u64_darray(struct u64_darray *a) { a->size = 0; }
 
-void free_u64_darray(struct u64_darray *a) {
-	free(a->data);
-	free(a);
-}
+void free_u64_darray(struct u64_darray *a) { free(a->data); }

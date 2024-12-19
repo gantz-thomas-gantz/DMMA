@@ -1,0 +1,16 @@
+
+v3:242324 terminated with signal 6 at PC=7f926568d9fc SP=7ffe5f972370.  Backtrace:
+/usr/lib/x86_64-linux-gnu/libc.so.6(pthread_kill+0x12c)[0x7f926568d9fc]
+/usr/lib/x86_64-linux-gnu/libc.so.6(raise+0x16)[0x7f9265639476]
+/usr/lib/x86_64-linux-gnu/libc.so.6(abort+0xd3)[0x7f926561f7f3]
+/usr/lib/x86_64-linux-gnu/libc.so.6(+0x89676)[0x7f9265680676]
+/usr/lib/x86_64-linux-gnu/libc.so.6(+0xa0cfc)[0x7f9265697cfc]
+/usr/lib/x86_64-linux-gnu/libc.so.6(+0xa0fdc)[0x7f9265697fdc]
+/usr/lib/x86_64-linux-gnu/libc.so.6(free+0xba)[0x7f926569c49a]
+./v3(+0x165d)[0x5637bccfb65d]
+./v3(+0x1ebd)[0x5637bccfbebd]
+./v3(+0x2d69)[0x5637bccfcd69]
+./v3(+0x393b)[0x5637bccfd93b]
+/usr/lib/x86_64-linux-gnu/libc.so.6(+0x29d90)[0x7f9265620d90]
+/usr/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x80)[0x7f9265620e40]
+./v3(+0x13c5)[0x5637bccfb3c5]

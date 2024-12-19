@@ -1,0 +1,10 @@
+
+v3:242530 terminated with signal 11 at PC=7fd78f36e449 SP=7ffc9d4fc0a0.  Backtrace:
+/usr/lib/x86_64-linux-gnu/libc.so.6(free+0x69)[0x7fd78f36e449]
+./v3(+0x165d)[0x55a58ef7a65d]
+./v3(+0x1e19)[0x55a58ef7ae19]
+./v3(+0x2ddf)[0x55a58ef7bddf]
+./v3(+0x39b1)[0x55a58ef7c9b1]
+/usr/lib/x86_64-linux-gnu/libc.so.6(+0x29d90)[0x7fd78f2f2d90]
+/usr/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x80)[0x7fd78f2f2e40]
+./v3(+0x13c5)[0x55a58ef7a3c5]

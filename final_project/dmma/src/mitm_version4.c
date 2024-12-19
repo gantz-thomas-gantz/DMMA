@@ -3,6 +3,7 @@
 #include <getopt.h>
 #include <inttypes.h>
 #include <mpi.h>
+#include <omp.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -215,16 +216,31 @@ int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 	 * (key % i == 0).*/
 
 	struct u64_darray *dict_zx = malloc(p * sizeof(struct u64_darray));
+
+#pragma omp parallel for
 	for (int rank = 0; rank < p; rank++)
 		initialize_u64_darray(
 		    &(dict_zx[rank]),
 		    2 * N /
 			(p * p));  // Expected amount of z and x for each rank
-	for (u64 x = (my_rank * N) / p; x < ((my_rank + 1) * N) / p; x++) {
-		u64 z = f(x);
-		int dest_rank = z % p;
-		append(&(dict_zx[dest_rank]), z);
-		append(&(dict_zx[dest_rank]), x);
+
+	omp_lock_t locks[p];
+	for (int i = 0; i < p; i++) {
+		omp_init_lock(&locks[i]);
+	}
+#pragma omp parallel
+	{
+#pragma omp for
+		for (u64 x = (my_rank * N) / p; x < ((my_rank + 1) * N) / p;
+		     x++) {
+			// TODO: AVX
+			u64 z = f(x);
+			int dest_rank = z % p;
+			omp_set_lock(&locks[dest_rank]);
+			append(&(dict_zx[dest_rank]), z);
+			append(&(dict_zx[dest_rank]), x);
+			omp_unset_lock(&locks[dest_rank]);
+		}
 	}
 
 	u64 *dict_zx_recv;
@@ -233,7 +249,6 @@ int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 
 	for (int i = 0; i < dict_zx_recv_size - 1; i += 2)
 		dict_insert(dict_zx_recv[i], dict_zx_recv[i + 1]);
-
 	free(dict_zx_recv);
 
 	double mid = wtime();
@@ -248,19 +263,29 @@ int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 	 * (N/(p*p)). */
 
 	struct u64_darray *dict_zy = malloc(p * sizeof(struct u64_darray));
+#pragma omp parallel for
 	for (int rank = 0; rank < p; rank++)
 		initialize_u64_darray(
 		    &(dict_zy[rank]),
 		    2 * N / (p * p));  // Expected amount of z for each rank
 
-	// TODO: OPENMP? append critical?
-	for (u64 y = (my_rank * N) / p; y < ((my_rank + 1) * N) / p; y++) {
-		u64 z = g(y);
-		int dest_rank = z % p;
-		// Ask process their_rank s.t. z%p==their_rank
-		// He is the only one who potentially has it
-		append(&(dict_zy[dest_rank]), z);
-		append(&(dict_zy[dest_rank]), y);
+#pragma omp parallel
+	{
+#pragma omp for
+		for (u64 y = (my_rank * N) / p; y < ((my_rank + 1) * N) / p;
+		     y++) {
+			// TODO: AVX
+			u64 z = g(y);
+			int dest_rank = z % p;
+			// Lock specific to dest_rank
+			omp_set_lock(&locks[dest_rank]);
+			append(&(dict_zy[dest_rank]), z);
+			append(&(dict_zy[dest_rank]), y);
+			omp_unset_lock(&locks[dest_rank]);
+		}
+	}
+	for (int i = 0; i < p; i++) {
+		omp_destroy_lock(&locks[i]);
 	}
 
 	u64 *dict_zy_recv;
@@ -269,26 +294,48 @@ int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 	free(dict_zy);
 	/* STEP 7:
 	 * Now look up my zs in my local dictionaries.*/
+
 	int nres = 0;
 	u64 ncandidates = 0;
-	u64 x[256];
 	u64 k1[16], k2[16];
-	for (int i = 0; i < dict_zy_recv_size; i += 2) {
-		// printf("Rank: %d. Starting probe.\n", my_rank);
-		u64 z = dict_zy_recv[i];
-		u64 y = dict_zy_recv[i + 1];
-		int nx = dict_probe(z, 256, x);
-		assert(nx >= 0);
-		ncandidates += nx;
-		for (int i = 0; i < nx; i++)
-			if (is_good_pair(x[i], y)) {
-				if (nres == maxres) return -1;
-				k1[nres] = x[i];
-				k2[nres] = y;
-				printf("SOLUTION FOUND! by %d \n", my_rank);
-				nres += 1;
+	int flag = 0;
+#pragma omp parallel shared(flag, nres, ncandidates, k1, k2)
+	{
+		u64 x[256 / omp_get_num_threads()];
+#pragma omp for
+		for (int i = 0; i < dict_zy_recv_size; i += 2) {
+			// printf("Rank: %d. Starting probe.\n", my_rank);
+			u64 z = dict_zy_recv[i];
+			u64 y = dict_zy_recv[i + 1];
+			int nx = dict_probe(z, 256 / omp_get_num_threads(), x);
+			assert(nx >= 0);
+#pragma omp atomic
+			ncandidates += nx;
+			for (int i = 0; i < nx; i++) {
+				if (is_good_pair(x[i], y)) {
+					if (flag) continue;
+					if (nres < maxres) {
+						printf(
+						    "SOLUTION FOUND! "
+						    "by thread %d\n",
+						    omp_get_thread_num());
+
+#pragma omp critical
+						{
+							k1[nres] = x[i];
+							k2[nres] = y;
+							nres++;
+						}
+					} else {
+						flag = 1;  // Set flag to
+							   // stop further
+							   // iterations
+					}
+				}
 			}
+		}
 	}
+	if (flag) return -1;
 	free(dict_zy_recv);
 
 	/* STEP 8:
@@ -388,7 +435,6 @@ void process_command_line_options(int argc, char **argv) {
 		exit(1);
 	}
 }
-
 /******************************************************************************/
 
 int main(int argc, char **argv) {
@@ -396,6 +442,8 @@ int main(int argc, char **argv) {
 	process_command_line_options(argc, argv);
 	printf("Running with n=%d, C0=(%08x, %08x) and C1=(%08x, %08x)\n",
 	       (int)n, C[0][0], C[0][1], C[1][0], C[1][1]);
+	// Set number of OpenMP threads
+	omp_set_num_threads(3);
 	int my_rank;
 	int p;
 	MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
