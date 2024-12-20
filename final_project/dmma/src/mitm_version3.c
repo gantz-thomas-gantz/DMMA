@@ -156,6 +156,7 @@ int dict_probe(u64 key, int maxval, u64 values[]) {
 	for (;;) {
 		if (A[h].k == EMPTY) return nval;
 		if (A[h].k == k) {
+			printf("nval: %d, maxval: %d \n", nval, maxval);
 			if (nval == maxval) return -1;
 			values[nval] = A[h].v;
 			nval += 1;
@@ -278,6 +279,7 @@ int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 		u64 z = dict_zy_recv[i];
 		u64 y = dict_zy_recv[i + 1];
 		int nx = dict_probe(z, 256, x);
+		printf("nx: %d \n", nx);
 		assert(nx >= 0);
 		ncandidates += nx;
 		for (int i = 0; i < nx; i++)
@@ -401,10 +403,9 @@ int main(int argc, char **argv) {
 	MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &p);
 	printf("p=%d\n", p);
-	dict_setup(1.125 * (1ull << n) /
-		   p);	// If not divisable no problem because hash table has
-			// more space allocated than necessary.
-
+	u64 s = (u64)(n < 10 ? 1.125 * (1ull << n) : 1.125 * (1ull << n) / p);
+	dict_setup(s);	// If not divisable no problem because hash table
+			// has more space allocated than necessary.
 	/* search */
 	u64 *K1, *K2;
 	double start_time, end_time;

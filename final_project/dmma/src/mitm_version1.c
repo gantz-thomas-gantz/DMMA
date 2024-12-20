@@ -224,7 +224,7 @@ int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 		int nx = dict_probe(y, 256, x);
 		assert(nx >= 0);
 		ncandidates += nx;
-		for (int i = 0; i < nx; i++)
+		for (int i = 0; i < nx; i++) {
 			if (is_good_pair(x[i], z)) {
 				if (nres == maxres) return -1;
 				k1[nres] = x[i];
@@ -232,6 +232,7 @@ int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 				printf("SOLUTION FOUND!\n");
 				nres += 1;
 			}
+		}
 	}
 	int *global_nres =
 	    NULL;	     // Array to store nres values from each process
@@ -303,7 +304,7 @@ void process_command_line_options(int argc, char **argv) {
 		switch (ch) {
 			case 'n':
 				n = atoi(optarg);
-				mask = (1 << n) - 1;
+				mask = (1ull << n) - 1;
 				break;
 			case '0':
 				set |= 1;
@@ -339,10 +340,9 @@ int main(int argc, char **argv) {
 	MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &p);
 	printf("p=%d\n", p);
-	dict_setup(1.125 * (1ull << n) /
-		   p);	// If not divisable no problem because hash table has
-			// more space allocated than necessary.
-
+	dict_setup((u64)(1.5 * (1ull << n) /
+			 p));  // If not divisable no problem because hash table
+			       // has more space allocated than necessary.
 	/* search */
 	u64 *K1, *K2;
 	double start_time, end_time;

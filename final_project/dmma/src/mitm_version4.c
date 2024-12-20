@@ -135,6 +135,9 @@ void dict_setup(u64 size) {
 /* Insert the binding key |----> value in the dictionnary */
 void dict_insert(u64 key, u64 value) {
 	u64 h = murmur64(key) % dict_size;
+	// printf("key: %zu; val: %zu \n", key, value);
+	// printf("hash_val: %zu\n", murmur64(key));
+	// printf("h: %zu\n", h);
 	for (;;) {
 		if (A[h].k == EMPTY) break;
 		h += 1;
@@ -443,16 +446,15 @@ int main(int argc, char **argv) {
 	printf("Running with n=%d, C0=(%08x, %08x) and C1=(%08x, %08x)\n",
 	       (int)n, C[0][0], C[0][1], C[1][0], C[1][1]);
 	// Set number of OpenMP threads
-	omp_set_num_threads(3);
+	// omp_set_num_threads(3);
 	int my_rank;
 	int p;
 	MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &p);
 	printf("p=%d\n", p);
-	dict_setup(1.125 * (1ull << n) /
-		   p);	// If not divisable no problem because hash table has
-			// more space allocated than necessary.
-
+	u64 s = (u64)(n < 10 ? 1.125 * (1ull << n) : 1.125 * (1ull << n) / p);
+	dict_setup(s);	// If not divisable no problem because hash table
+			// has more space allocated than necessary.
 	/* search */
 	u64 *K1, *K2;
 	double start_time, end_time;

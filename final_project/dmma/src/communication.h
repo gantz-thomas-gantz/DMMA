@@ -90,7 +90,8 @@ int exchange(u64 **recv, struct u64_darray *send, int p, int my_rank) {
 						 sizeof(u64));
 	}*/
 
-	*recv = (u64 *)malloc(sizeof(u64) * recv_total_size);
+	// Malloc using alignment for subsequent vectorization
+	*recv = aligned_alloc(32, sizeof(u64) * recv_total_size);
 	MPI_Alltoallv(contiguous_send, send_sizes, send_displacements,
 		      MPI_UINT64_T, *recv, recv_sizes, recv_displacements,
 		      MPI_UINT64_T, MPI_COMM_WORLD);

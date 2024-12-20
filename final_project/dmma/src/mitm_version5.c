@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <err.h>
 #include <getopt.h>
+#include <immintrin.h>
 #include <inttypes.h>
 #include <mpi.h>
 #include <omp.h>
@@ -31,6 +32,9 @@ struct entry *A; /* the hash table */
 u32 P[2][2] = {{0, 0}, {0xffffffff, 0xffffffff}};
 u32 C[2][2];
 
+__m256i mul1;
+__m256i mul2;
+
 /************************ tools and utility functions *************************/
 
 double wtime() {
@@ -47,6 +51,38 @@ u64 murmur64(u64 x) {
 	x *= 0xc4ceb9fe1a85ec53ull;
 	x ^= x >> 33;
 	return x;
+}
+
+// Emulate _mm256_mullo_epi64 using AVX2
+__m256i avx2_mullo_epi64(__m256i a, __m256i b) {
+	__m256i a_lo = _mm256_and_si256(a, _mm256_set1_epi64x(0xFFFFFFFF));
+	__m256i a_hi = _mm256_srli_epi64(a, 32);
+	__m256i b_lo = _mm256_and_si256(b, _mm256_set1_epi64x(0xFFFFFFFF));
+	__m256i b_hi = _mm256_srli_epi64(b, 32);
+
+	__m256i lo_lo =
+	    _mm256_mul_epu32(a, b);  // Low 32 bits of a * Low 32 bits of b
+	__m256i hi_lo =
+	    _mm256_mul_epu32(a_hi, b);	// High 32 bits of a * Low 32 bits of b
+	__m256i lo_hi =
+	    _mm256_mul_epu32(a, b_hi);	// Low 32 bits of a * High 32 bits of b
+
+	__m256i result = _mm256_add_epi64(lo_lo, _mm256_slli_epi64(hi_lo, 32));
+	result = _mm256_add_epi64(result, _mm256_slli_epi64(lo_hi, 32));
+
+	return result;
+}
+
+__m256i murmur64_avx2(__m256i x_vec) {
+	__m256i x_shifted = _mm256_srli_epi64(x_vec, 33);  // x >> 33
+	x_vec = _mm256_xor_si256(x_vec, x_shifted);	   // x ^= x >> 33
+	x_vec = avx2_mullo_epi64(x_vec, mul1);
+	x_shifted = _mm256_srli_epi64(x_vec, 33);    // x >> 33
+	x_vec = _mm256_xor_si256(x_vec, x_shifted);  // x ^= x >> 33
+	x_vec = avx2_mullo_epi64(x_vec, mul2);
+	x_shifted = _mm256_srli_epi64(x_vec, 33);    // x >> 33
+	x_vec = _mm256_xor_si256(x_vec, x_shifted);  // x ^= x >> 33
+	return x_vec;
 }
 
 /* represent n in 4 bytes */
@@ -145,6 +181,45 @@ void dict_insert(u64 key, u64 value) {
 	A[h].v = value;
 }
 
+// Extract 64-bit integer from __m256i at position `index`
+static inline u64 avx2_extract_epi64(__m256i vec, int index) {
+	__m128i low = _mm256_castsi256_si128(vec);	  // Lower 128 bits
+	__m128i high = _mm256_extracti128_si256(vec, 1);  // Upper 128 bits
+
+	switch (index) {
+		case 0:
+			return _mm_extract_epi64(low, 0);
+		case 1:
+			return _mm_extract_epi64(low, 1);
+		case 2:
+			return _mm_extract_epi64(high, 0);
+		case 3:
+			return _mm_extract_epi64(high, 1);
+		default:
+			return 0;  // Invalid index
+	}
+}
+
+void dict_insert_avx2(__m256i keys, __m256i values) {
+	__m256i hashes =
+	    murmur64_avx2(keys);  // This is the vectorized murmur64 computation
+	for (int i = 0; i < 4; i++) {
+		u64 h = avx2_extract_epi64(hashes,
+					   i) %
+			dict_size;  // Extract individual hash value
+				    // for each entry in the vector
+		for (;;) {
+			if (A[h].k == EMPTY) break;
+			h += 1;
+			if (h == dict_size) h = 0;
+		}
+		assert(A[h].k == EMPTY);
+		// Insert once an empty slot is found
+		A[h].k = avx2_extract_epi64(keys, i) % PRIME;
+		A[h].v = avx2_extract_epi64(values, i);
+	}
+}
+
 /* Query the dictionnary with this `key`.  Write values (potentially)
  *  matching the key in `values` and return their number. The `values`
  *  array must be preallocated of size (at least) `maxval`.
@@ -166,9 +241,11 @@ int dict_probe(u64 key, int maxval, u64 values[]) {
 	}
 }
 
-/***************************** MITM problem ***********************************/
+/***************************** MITM problem
+ * ***********************************/
 
-/* f : {0, 1}^n --> {0, 1}^n.  Speck64-128 encryption of P[0], using k */
+/* f : {0, 1}^n --> {0, 1}^n.  Speck64-128 encryption of P[0], using k
+ */
 u64 f(u64 k) {
 	assert((k & mask) == k);
 	u32 K[4] = {k & 0xffffffff, k >> 32, 0, 0};
@@ -179,7 +256,8 @@ u64 f(u64 k) {
 	return ((u64)Ct[0] ^ ((u64)Ct[1] << 32)) & mask;
 }
 
-/* g : {0, 1}^n --> {0, 1}^n.  speck64-128 decryption of C[0], using k */
+/* g : {0, 1}^n --> {0, 1}^n.  speck64-128 decryption of C[0], using k
+ */
 u64 g(u64 k) {
 	assert((k & mask) == k);
 	u32 K[4] = {k & 0xffffffff, k >> 32, 0, 0};
@@ -212,17 +290,16 @@ int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 	u64 N = 1ull << n;
 
 	/* STEP 1: Build partitioned dictionary.
-	 * Logical step: Process i holds all keys respective to their rank
-	 * (key % i == 0).*/
+	 * Logical step: Process i holds all keys respective to their
+	 * rank (key % i == 0).*/
 
 	struct u64_darray *dict_zx = malloc(p * sizeof(struct u64_darray));
 
 #pragma omp parallel for
 	for (int rank = 0; rank < p; rank++)
-		initialize_u64_darray(
-		    &(dict_zx[rank]),
-		    2 * N /
-			(p * p));  // Expected amount of z and x for each rank
+		initialize_u64_darray(&(dict_zx[rank]),
+				      2 * N / (p * p));	 // Expected amount of z
+							 // and x for each rank
 
 	omp_lock_t locks[p];
 	for (int i = 0; i < p; i++) {
@@ -233,7 +310,6 @@ int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 #pragma omp for
 		for (u64 x = (my_rank * N) / p; x < ((my_rank + 1) * N) / p;
 		     x++) {
-			// TODO: AVX
 			u64 z = f(x);
 			int dest_rank = z % p;
 			omp_set_lock(&locks[dest_rank]);
@@ -247,20 +323,38 @@ int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 	int dict_zx_recv_size = exchange(&dict_zx_recv, dict_zx, p, my_rank);
 	free(dict_zx);
 
-	for (int i = 0; i < dict_zx_recv_size - 1; i += 2)
-		dict_insert(dict_zx_recv[i], dict_zx_recv[i + 1]);
-	free(dict_zx_recv);
+	printf("Before dict inserts.\n");
 
+	for (int i = 0; i < dict_zx_recv_size; i += 8) {
+		// Load 4 keys and 4 values into AVX2 registers
+		__m256i keys = _mm256_set_epi64x(
+		    dict_zx_recv[i + 6], dict_zx_recv[i + 4],
+		    dict_zx_recv[i + 2],
+		    dict_zx_recv[i]);  // Load keys z (4 keys at once)
+				       // into AVX2 register
+		__m256i values = _mm256_set_epi64x(
+		    dict_zx_recv[i + 7], dict_zx_recv[i + 5],
+		    dict_zx_recv[i + 3],
+		    dict_zx_recv[i + 1]);  // Load values x (4 values at
+					   // once) into AVX2 register
+		dict_insert_avx2(keys, values);
+	}
+	// Epilogue (process unvectorizable remainder)
+	for (int i = dict_zx_recv_size - dict_zx_recv_size % 8;
+	     i < dict_zx_recv_size; i += 2) {
+		dict_insert(dict_zx_recv[i], dict_zx_recv[i + 1]);
+	}
+	printf("After dict inserts.\n");
 	double mid = wtime();
 	printf("Fill: %.1fs\n", mid - start);
 
 	/* STEP 2:
 	 * Attribute zs to their repective processes.
-	 * Logical step: Look for the key in the dictionary of the process who
-	 * could potentially have it (dest_rank = z % p).
-	 * Since we don't know exactly how many there are per process, we use
-	 * dynammic arrays and initialize them to their expected capacity
-	 * (N/(p*p)). */
+	 * Logical step: Look for the key in the dictionary of the
+	 * process who could potentially have it (dest_rank = z % p).
+	 * Since we don't know exactly how many there are per process,
+	 * we use dynammic arrays and initialize them to their expected
+	 * capacity (N/(p*p)). */
 
 	struct u64_darray *dict_zy = malloc(p * sizeof(struct u64_darray));
 #pragma omp parallel for
@@ -291,6 +385,7 @@ int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 	u64 *dict_zy_recv;
 
 	int dict_zy_recv_size = exchange(&dict_zy_recv, dict_zy, p, my_rank);
+	printf("Total dict_zy_recv_size: %d \n", dict_zy_recv_size);
 	free(dict_zy);
 	/* STEP 7:
 	 * Now look up my zs in my local dictionaries.*/
@@ -304,7 +399,8 @@ int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 		u64 x[256 / omp_get_num_threads()];
 #pragma omp for
 		for (int i = 0; i < dict_zy_recv_size; i += 2) {
-			// printf("Rank: %d. Starting probe.\n", my_rank);
+			// printf("Rank: %d. Starting probe.\n",
+			// my_rank);
 			u64 z = dict_zy_recv[i];
 			u64 y = dict_zy_recv[i + 1];
 			int nx = dict_probe(z, 256 / omp_get_num_threads(), x);
@@ -338,6 +434,7 @@ int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 	if (flag) return -1;
 	free(dict_zy_recv);
 
+	printf("ncandidates: %zu\n", ncandidates);
 	/* STEP 8:
 	 * Gather all locally found solutions into root.*/
 
@@ -443,15 +540,18 @@ int main(int argc, char **argv) {
 	printf("Running with n=%d, C0=(%08x, %08x) and C1=(%08x, %08x)\n",
 	       (int)n, C[0][0], C[0][1], C[1][0], C[1][1]);
 	// Set number of OpenMP threads
-	omp_set_num_threads(3);
+	// omp_set_num_threads(3);
+	// Set avx constants
+	mul1 = _mm256_set1_epi64x(0xff51afd7ed558ccdull);
+	mul2 = _mm256_set1_epi64x(0xc4ceb9fe1a85ec53ull);
 	int my_rank;
 	int p;
 	MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &p);
 	printf("p=%d\n", p);
-	dict_setup(1.125 * (1ull << n) /
-		   p);	// If not divisable no problem because hash table has
-			// more space allocated than necessary.
+	u64 s = (u64)(n < 10 ? 1.5 * (1ull << n) : 1.125 * (1ull << n) / p);
+	dict_setup(s);	// If not divisable no problem because hash table
+			// has more space allocated than necessary.
 
 	/* search */
 	u64 *K1, *K2;
