@@ -304,6 +304,7 @@ int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 	int flag = 0;
 #pragma omp parallel shared(flag, nres, ncandidates, k1, k2)
 	{
+		printf("n threads: %d\n", omp_get_num_threads());
 		u64 x[256 / omp_get_num_threads()];
 #pragma omp for
 		for (int i = 0; i < dict_zy_recv_size; i += 2) {
