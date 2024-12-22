@@ -447,9 +447,11 @@ int main(int argc, char **argv) {
 	printf("Running with n=%d, C0=(%08x, %08x) and C1=(%08x, %08x)\n",
 	       (int)n, C[0][0], C[0][1], C[1][0], C[1][1]);
 	// Set number of OpenMP threads
-	int num_cores = omp_get_num_procs();
-	printf("Number of logical cores: %d\n", num_cores);
-	omp_set_num_threads(num_cores);
+	int num_threads = omp_get_max_threads();
+        printf("Max threads: %d\n", num_threads);
+	int num_procs = omp_get_num_procs();
+	printf("Available logical cores: %d\n", num_procs);
+
 	int my_rank;
 	int p;
 	MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
