@@ -448,9 +448,10 @@ int main(int argc, char **argv) {
 	       (int)n, C[0][0], C[0][1], C[1][0], C[1][1]);
 	// Set number of OpenMP threads
 	int num_threads = omp_get_max_threads();
-        printf("Max threads: %d\n", num_threads);
+	printf("Max threads: %d\n", num_threads);
 	int num_procs = omp_get_num_procs();
 	printf("Available logical cores: %d\n", num_procs);
+	omp_set_num_threads(3);
 
 	int my_rank;
 	int p;

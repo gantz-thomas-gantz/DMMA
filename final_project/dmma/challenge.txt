@@ -1,0 +1,14 @@
+Here is your challenge:
+
+# username: jan.marxen
+# key size: 27
+
+C0 = (87613acf, 61b9182f)
+C1 = (6588caac, d69450ea)
+
+# invoke the sequential program with:
+./mitm --n 27 --C0 61b9182f87613acf --C1 d69450ea6588caac
+
+# the sequential program requires 1.7GB of RAM.
+
+Good luck!
