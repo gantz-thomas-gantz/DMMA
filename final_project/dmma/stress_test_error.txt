@@ -1,0 +1,20 @@
+Warning: Permanently added '[gros-86]:6667,[172.16.66.86]:6667' (RSA) to the list of known hosts.
+Warning: Permanently added '[gros-71]:6667' (RSA) to the list of known hosts.
+Warning: Permanently added '[gros-91]:6667' (RSA) to the list of known hosts.
+Warning: Permanently added '[gros-99]:6667' (RSA) to the list of known hosts.
+Warning: Permanently added '[gros-5]:6667,[172.16.66.5]:6667' (RSA) to the list of known hosts.
+Warning: Permanently added '[gros-52]:6667,[172.16.66.52]:6667' (RSA) to the list of known hosts.
+Warning: Permanently added '[gros-7]:6667,[172.16.66.7]:6667' (RSA) to the list of known hosts.
+Warning: Permanently added '[gros-83]:6667' (RSA) to the list of known hosts.
+Warning: Permanently added '[gros-50]:6667,[172.16.66.50]:6667' (RSA) to the list of known hosts.
+Warning: Permanently added '[gros-84]:6667,[172.16.66.84]:6667' (RSA) to the list of known hosts.
+Warning: Permanently added '[gros-53]:6667' (RSA) to the list of known hosts.
+Warning: Permanently added '[gros-76]:6667' (RSA) to the list of known hosts.
+Warning: Permanently added '[gros-54]:6667,[172.16.66.54]:6667' (RSA) to the list of known hosts.
+--------------------------------------------------------------------------
+Primary job  terminated normally, but 1 process returned
+a non-zero exit code. Per user-direction, the job has been aborted.
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+mpiexec noticed that process rank 1 with PID 0 on node gros-49 exited on signal 9 (Killed).
+--------------------------------------------------------------------------

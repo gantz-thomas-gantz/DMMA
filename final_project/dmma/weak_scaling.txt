@@ -1,3 +1,6 @@
 Problem Size, Number of Nodes, Execution Time (seconds)
-25, 1, 61
-26, 2, 68
+25, 1, 42
+26, 2, 42
+27, 4, 43
+28, 8, 50
+29, 16, 89

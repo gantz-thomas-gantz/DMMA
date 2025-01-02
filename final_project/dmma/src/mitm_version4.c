@@ -236,7 +236,6 @@ int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 #pragma omp for
 		for (u64 x = (my_rank * N) / p; x < ((my_rank + 1) * N) / p;
 		     x++) {
-			// TODO: AVX
 			u64 z = f(x);
 			int dest_rank = z % p;
 			omp_set_lock(&locks[dest_rank]);
@@ -245,7 +244,6 @@ int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 			omp_unset_lock(&locks[dest_rank]);
 		}
 	}
-
 	u64 *dict_zx_recv;
 	int dict_zx_recv_size = exchange(&dict_zx_recv, dict_zx, p, my_rank);
 	free(dict_zx);
@@ -451,7 +449,7 @@ int main(int argc, char **argv) {
 	printf("Max threads: %d\n", num_threads);
 	int num_procs = omp_get_num_procs();
 	printf("Available logical cores: %d\n", num_procs);
-	omp_set_num_threads(3);
+	omp_set_num_threads(20);
 
 	int my_rank;
 	int p;

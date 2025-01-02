@@ -2,6 +2,8 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <malloc.h>
+#include <stdio.h>
 
 typedef uint64_t u64; /* portable 64-bit integer */
 
@@ -41,3 +43,10 @@ void append(struct u64_darray *a, u64 val) {
 void clear_u64_darray(struct u64_darray *a) { a->size = 0; }
 
 void free_u64_darray(struct u64_darray *a) { free(a->data); }
+
+void log_heap_memory_usage() {
+    struct mallinfo info = mallinfo();
+    printf("Heap memory usage: %d bytes\n", info.uordblks);
+}
+
+

@@ -4,7 +4,7 @@
 BASE_URL="https://ppar.tme-crypto.fr/jan.marxen/"
 
 # Range of problem sizes
-PROBLEM_SIZES=(25 26 27)  # You can modify this range as needed
+PROBLEM_SIZES=(25 26 27 28 29)  # You can modify this range as needed
 
 
 # Loop through each problem size

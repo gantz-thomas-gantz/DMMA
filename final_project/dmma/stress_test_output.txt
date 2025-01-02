@@ -1,0 +1,192 @@
+Running with n=31, C0=(d41b8a62, 0e3b626c) and C1=(c789bc99, e3637e86)
+Max threads: 36
+Available logical cores: 36
+Running with n=31, C0=(d41b8a62, 0e3b626c) and C1=(c789bc99, e3637e86)
+Max threads: 36
+Available logical cores: 36
+Running with n=31, C0=(d41b8a62, 0e3b626c) and C1=(c789bc99, e3637e86)
+Max threads: 36
+Available logical cores: 36
+Running with n=31, C0=(d41b8a62, 0e3b626c) and C1=(c789bc99, e3637e86)
+Max threads: 36
+Available logical cores: 36
+Running with n=31, C0=(d41b8a62, 0e3b626c) and C1=(c789bc99, e3637e86)
+Max threads: 36
+Available logical cores: 36
+p=16
+Dictionary size: 1.8GB
+Running with n=31, C0=(d41b8a62, 0e3b626c) and C1=(c789bc99, e3637e86)
+Max threads: 36
+Available logical cores: 36
+p=16
+Dictionary size: 1.8GB
+Running with n=31, C0=(d41b8a62, 0e3b626c) and C1=(c789bc99, e3637e86)
+Max threads: 36
+Available logical cores: 36
+p=16
+Dictionary size: 1.8GB
+Running with n=31, C0=(d41b8a62, 0e3b626c) and C1=(c789bc99, e3637e86)
+Max threads: 36
+Available logical cores: 36
+p=16
+Dictionary size: 1.8GB
+Running with n=31, C0=(d41b8a62, 0e3b626c) and C1=(c789bc99, e3637e86)
+Max threads: 36
+Available logical cores: 36
+p=16
+Dictionary size: 1.8GB
+Running with n=31, C0=(d41b8a62, 0e3b626c) and C1=(c789bc99, e3637e86)
+Max threads: 36
+Available logical cores: 36
+p=16
+Dictionary size: 1.8GB
+Running with n=31, C0=(d41b8a62, 0e3b626c) and C1=(c789bc99, e3637e86)
+Max threads: 36
+Available logical cores: 36
+p=16
+Dictionary size: 1.8GB
+Running with n=31, C0=(d41b8a62, 0e3b626c) and C1=(c789bc99, e3637e86)
+Max threads: 36
+Available logical cores: 36
+p=16
+Dictionary size: 1.8GB
+Running with n=31, C0=(d41b8a62, 0e3b626c) and C1=(c789bc99, e3637e86)
+Max threads: 36
+Available logical cores: 36
+p=16
+Dictionary size: 1.8GB
+p=16
+Dictionary size: 1.8GB
+Running with n=31, C0=(d41b8a62, 0e3b626c) and C1=(c789bc99, e3637e86)
+Max threads: 36
+Available logical cores: 36
+p=16
+Dictionary size: 1.8GB
+Running with n=31, C0=(d41b8a62, 0e3b626c) and C1=(c789bc99, e3637e86)
+Max threads: 36
+Available logical cores: 36
+p=16
+Dictionary size: 1.8GB
+p=16
+Dictionary size: 1.8GB
+p=16
+Dictionary size: 1.8GB
+Running with n=31, C0=(d41b8a62, 0e3b626c) and C1=(c789bc99, e3637e86)
+Max threads: 36
+Available logical cores: 36
+p=16
+Dictionary size: 1.8GB
+p=16
+Dictionary size: 1.8GB
+Memory usage before golden_claw_search(): 
+Heap memory usage: 19274688 bytes
+Memory usage before initializing zx darrays: 
+Heap memory usage: 19274688 bytes
+Memory usage before golden_claw_search(): 
+Heap memory usage: 19278608 bytes
+Memory usage before initializing zx darrays: 
+Heap memory usage: 19278608 bytes
+Memory usage after initializing zx darrays: 
+Heap memory usage: 19331712 bytes
+Memory usage before golden_claw_search(): 
+Heap memory usage: 19279584 bytes
+Memory usage before initializing zx darrays: 
+Heap memory usage: 19279584 bytes
+Memory usage before golden_claw_search(): 
+Memory usage before golden_claw_search(): 
+Heap memory usage: 19279296 bytes
+Memory usage before initializing zx darrays: 
+Heap memory usage: 19279296 bytes
+Heap memory usage: 19277600 bytes
+Memory usage before initializing zx darrays: 
+Heap memory usage: 19277600 bytes
+Memory usage before golden_claw_search(): 
+Heap memory usage: 19291216 bytes
+Memory usage before initializing zx darrays: 
+Heap memory usage: 19291216 bytes
+Memory usage after initializing zx darrays: 
+Heap memory usage: 19335632 bytes
+Memory usage before golden_claw_search(): 
+Heap memory usage: 19282880 bytes
+Memory usage before initializing zx darrays: 
+Heap memory usage: 19282880 bytes
+Memory usage before golden_claw_search(): 
+Heap memory usage: 19276000 bytes
+Memory usage before initializing zx darrays: 
+Heap memory usage: 19276000 bytes
+Memory usage before golden_claw_search(): 
+Heap memory usage: 19286752 bytes
+Memory usage before initializing zx darrays: 
+Heap memory usage: 19286752 bytes
+Memory usage after initializing zx darrays: 
+Heap memory usage: 19348240 bytes
+Memory usage before golden_claw_search(): 
+Heap memory usage: 19279424 bytes
+Memory usage before initializing zx darrays: 
+Heap memory usage: 19279424 bytes
+Memory usage before golden_claw_search(): 
+Memory usage before golden_claw_search(): 
+Heap memory usage: 19285760 bytes
+Memory usage before initializing zx darrays: 
+Heap memory usage: 19285760 bytes
+Memory usage after initializing zx darrays: 
+Heap memory usage: 19336320 bytes
+Heap memory usage: 19284288 bytes
+Memory usage before initializing zx darrays: 
+Heap memory usage: 19284288 bytes
+Memory usage after initializing zx darrays: 
+Heap memory usage: 19334624 bytes
+Memory usage after initializing zx darrays: 
+Heap memory usage: 19336608 bytes
+Memory usage after initializing zx darrays: 
+Heap memory usage: 19333024 bytes
+Memory usage after initializing zx darrays: 
+Heap memory usage: 19339904 bytes
+Memory usage after initializing zx darrays: 
+Heap memory usage: 19336448 bytes
+Memory usage before golden_claw_search(): 
+Memory usage before golden_claw_search(): 
+Heap memory usage: 19279152 bytes
+Memory usage before initializing zx darrays: 
+Heap memory usage: 19279152 bytes
+Heap memory usage: 19278608 bytes
+Memory usage before initializing zx darrays: 
+Heap memory usage: 19278608 bytes
+Memory usage before golden_claw_search(): 
+Heap memory usage: 19277216 bytes
+Memory usage before initializing zx darrays: 
+Heap memory usage: 19277216 bytes
+Memory usage after initializing zx darrays: 
+Heap memory usage: 19342784 bytes
+Memory usage after initializing zx darrays: 
+Heap memory usage: 19343776 bytes
+Memory usage after initializing zx darrays: 
+Heap memory usage: 19341312 bytes
+Memory usage before golden_claw_search(): 
+Heap memory usage: 19289888 bytes
+Memory usage before initializing zx darrays: 
+Heap memory usage: 19289888 bytes
+Memory usage after initializing zx darrays: 
+Heap memory usage: 19335632 bytes
+Memory usage after initializing zx darrays: 
+Heap memory usage: 19336176 bytes
+Memory usage after initializing zx darrays: 
+Heap memory usage: 19334240 bytes
+Memory usage after initializing zx darrays: 
+Heap memory usage: 19346912 bytes
+Fill: 137.0s
+Fill: 137.1s
+Fill: 137.3s
+Fill: 137.8s
+Fill: 138.8s
+Fill: 139.4s
+Fill: 142.4s
+Fill: 143.0s
+Fill: 144.1s
+Fill: 144.3s
+Fill: 147.0s
+Fill: 147.0s
+Fill: 149.9s
+Fill: 153.7s
+Fill: 163.6s
+Fill: 171.5s
