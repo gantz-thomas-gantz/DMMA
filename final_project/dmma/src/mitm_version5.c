@@ -387,7 +387,7 @@ int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 	int dict_zy_recv_size = exchange(&dict_zy_recv, dict_zy, p, my_rank);
 	printf("Total dict_zy_recv_size: %d \n", dict_zy_recv_size);
 	free(dict_zy);
-	/* STEP 7:
+	/* STEP 3:
 	 * Now look up my zs in my local dictionaries.*/
 
 	int nres = 0;
@@ -435,7 +435,7 @@ int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 	free(dict_zy_recv);
 
 	printf("ncandidates: %zu\n", ncandidates);
-	/* STEP 8:
+	/* STEP 4:
 	 * Gather all locally found solutions into root.*/
 
 	int *global_nres =
@@ -541,6 +541,7 @@ int main(int argc, char **argv) {
 	       (int)n, C[0][0], C[0][1], C[1][0], C[1][1]);
 	// Set number of OpenMP threads
 	// omp_set_num_threads(3);
+	
 	// Set avx constants
 	mul1 = _mm256_set1_epi64x(0xff51afd7ed558ccdull);
 	mul2 = _mm256_set1_epi64x(0xc4ceb9fe1a85ec53ull);

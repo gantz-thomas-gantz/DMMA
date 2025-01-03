@@ -4,8 +4,6 @@
 
 #include "utilities.h"
 
-// TODO: Send in smaller batches to occupy less memory.
-
 int exchange(u64 **recv, struct u64_darray *send, int p, int my_rank) {
 	/* STEP 1:
 	 * a) Send sizes of data to be sent.

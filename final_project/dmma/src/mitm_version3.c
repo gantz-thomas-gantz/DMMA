@@ -253,7 +253,6 @@ int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 		    &(dict_zy[rank]),
 		    2 * N / (p * p));  // Expected amount of z for each rank
 
-	// TODO: OPENMP? append critical?
 	for (u64 y = (my_rank * N) / p; y < ((my_rank + 1) * N) / p; y++) {
 		u64 z = g(y);
 		int dest_rank = z % p;
@@ -267,7 +266,8 @@ int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 
 	int dict_zy_recv_size = exchange(&dict_zy_recv, dict_zy, p, my_rank);
 	free(dict_zy);
-	/* STEP 7:
+	
+	/* STEP 3:
 	 * Now look up my zs in my local dictionaries.*/
 	int nres = 0;
 	u64 ncandidates = 0;
@@ -290,7 +290,7 @@ int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 	}
 	free(dict_zy_recv);
 
-	/* STEP 8:
+	/* STEP 4:
 	 * Gather all locally found solutions into root.*/
 
 	int *global_nres =

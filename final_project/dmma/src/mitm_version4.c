@@ -275,7 +275,6 @@ int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 #pragma omp for
 		for (u64 y = (my_rank * N) / p; y < ((my_rank + 1) * N) / p;
 		     y++) {
-			// TODO: AVX
 			u64 z = g(y);
 			int dest_rank = z % p;
 			// Lock specific to dest_rank
@@ -306,7 +305,6 @@ int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 		u64 x[256 / omp_get_num_threads()];
 #pragma omp for
 		for (int i = 0; i < dict_zy_recv_size; i += 2) {
-			// printf("Rank: %d. Starting probe.\n", my_rank);
 			u64 z = dict_zy_recv[i];
 			u64 y = dict_zy_recv[i + 1];
 			int nx = dict_probe(z, 256 / omp_get_num_threads(), x);
@@ -329,9 +327,7 @@ int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 							nres++;
 						}
 					} else {
-						flag = 1;  // Set flag to
-							   // stop further
-							   // iterations
+						flag = 1;  // Set flag to stop further iterations
 					}
 				}
 			}
