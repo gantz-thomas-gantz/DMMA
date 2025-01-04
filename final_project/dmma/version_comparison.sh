@@ -4,14 +4,16 @@
 BASE_URL="https://ppar.tme-crypto.fr/jan.marxen/"
 
 # Range of problem sizes
-PROBLEM_SIZES=(31 32 33)  # You can modify this range as needed
+PROBLEM_SIZES=(25 26 27 28 29 30)  # You can modify this range as needed
 
+# Versions to test
+VERSIONS=("original" "version1" "version3" "version4" "version5")  # Define all versions here
 
-# Node start amount
-nodes=16
+# Loop through each problem size
+nodes=1
 
 # Prepare the weak_scaling.txt file to store the results
-echo "Problem Size, Number of Nodes, Execution Time (seconds)" > weak_scaling.txt
+echo "Problem Size, Number of Nodes, ${VERSIONS[@]}" > versions_weak_scaling.txt
 
 for problem_size in "${PROBLEM_SIZES[@]}"; do
     # Download the text file for the current problem size
@@ -20,7 +22,7 @@ for problem_size in "${PROBLEM_SIZES[@]}"; do
 
     # Extract parameters n, C0, and C1 from the text file
     n=$(grep -oP "(?<=--n )\d+" challenge.txt)
-    
+
     # Extract C0 and C1 correctly (handle the two elements in each tuple)
     C0=$(grep -oP "(?<=C0 = \().*(?=\))" challenge.txt | tr -d '[:space:]')
     C1=$(grep -oP "(?<=C1 = \().*(?=\))" challenge.txt | tr -d '[:space:]')
@@ -41,28 +43,38 @@ for problem_size in "${PROBLEM_SIZES[@]}"; do
     echo "Problem size: $problem_size"
     echo "n: $n, C0: ($C0_FIRST, $C0_SECOND), C1: ($C1_FIRST, $C1_SECOND)"
 
-		# Create hostfile
-		INPUT_FILE="$OAR_NODE_FILE"
-		HOST_FILE="mpi_hostfile"
+    # Create hostfile
+    INPUT_FILE="$OAR_NODE_FILE"
+    HOST_FILE="mpi_hostfile"
 
-		# Deduplicate and count slots for each node
-		awk '{slots[$1]++} END {for (host in slots) print host " slots=" slots[host]}' "$INPUT_FILE" > "$HOST_FILE"
+    # Deduplicate and count slots for each node
+    awk '{slots[$1]++} END {for (host in slots) print host " slots=" slots[host]}' "$INPUT_FILE" > "$HOST_FILE"
 
-    # Run the MPI program and time it
-    START_TIME=$(date +%s)
-    mpiexec --hostfile "$HOST_FILE" -n "$nodes" build/version4 --n "$n" --C0 "$C0_FIRST$C0_SECOND" --C1 "$C1_FIRST$C1_SECOND"
-    END_TIME=$(date +%s)
+    # Initialize a string to hold execution times for the current problem size
+    EXEC_TIMES=""
 
-    # Calculate the execution time
-    EXEC_TIME=$((END_TIME - START_TIME))
-    echo "Execution time for problem size $problem_size: $EXEC_TIME seconds."
+    # Inner loop to run each version and measure execution time
+    for VERSION in "${VERSIONS[@]}"; do
+        # Run the MPI program and time it
+        START_TIME=$(date +%s)
+        mpiexec --hostfile "$HOST_FILE" -n "$nodes" build/$VERSION --n "$n" --C0 "$C0_FIRST$C0_SECOND" --C1 "$C1_FIRST$C1_SECOND"
+        END_TIME=$(date +%s)
+
+        # Calculate the execution time
+        EXEC_TIME=$((END_TIME - START_TIME))
+        echo "Execution time for problem size $problem_size, version $VERSION: $EXEC_TIME seconds."
+
+        # Append the execution time to the EXEC_TIMES string
+        EXEC_TIMES="$EXEC_TIMES, $EXEC_TIME"
+    done
 
     # Log the result into weak_scaling.txt
-    echo "$problem_size, $nodes, $EXEC_TIME" >> weak_scaling.txt
+    echo "$problem_size, $nodes$EXEC_TIMES" >> versions_weak_scaling.txt
 
     # Clean up the downloaded file
     rm challenge.txt
 
+    # Double the number of nodes for the next iteration
     nodes=$((nodes * 2))
 done
 

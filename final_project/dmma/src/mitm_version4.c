@@ -55,9 +55,7 @@ u64 murmur64(u64 x) {
 
 // Emulate _mm256_mullo_epi64 using AVX2
 __m256i avx2_mullo_epi64(__m256i a, __m256i b) {
-	__m256i a_lo = _mm256_and_si256(a, _mm256_set1_epi64x(0xFFFFFFFF));
 	__m256i a_hi = _mm256_srli_epi64(a, 32);
-	__m256i b_lo = _mm256_and_si256(b, _mm256_set1_epi64x(0xFFFFFFFF));
 	__m256i b_hi = _mm256_srli_epi64(b, 32);
 
 	__m256i lo_lo =
@@ -368,7 +366,6 @@ int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 #pragma omp for
 		for (u64 y = (my_rank * N) / p; y < ((my_rank + 1) * N) / p;
 		     y++) {
-			// TODO: AVX
 			u64 z = g(y);
 			int dest_rank = z % p;
 			// Lock specific to dest_rank
@@ -399,8 +396,6 @@ int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 		u64 x[256 / omp_get_num_threads()];
 #pragma omp for
 		for (int i = 0; i < dict_zy_recv_size; i += 2) {
-			// printf("Rank: %d. Starting probe.\n",
-			// my_rank);
 			u64 z = dict_zy_recv[i];
 			u64 y = dict_zy_recv[i + 1];
 			int nx = dict_probe(z, 256 / omp_get_num_threads(), x);
@@ -541,7 +536,6 @@ int main(int argc, char **argv) {
 	       (int)n, C[0][0], C[0][1], C[1][0], C[1][1]);
 	// Set number of OpenMP threads
 	// omp_set_num_threads(3);
-	
 	// Set avx constants
 	mul1 = _mm256_set1_epi64x(0xff51afd7ed558ccdull);
 	mul2 = _mm256_set1_epi64x(0xc4ceb9fe1a85ec53ull);
