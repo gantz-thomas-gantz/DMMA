@@ -8,6 +8,9 @@
 #include <stdlib.h>
 #include <sys/time.h>
 
+#include "communication.h"
+#include "utilities.h"
+
 typedef uint64_t u64; /* portable 64-bit integer */
 typedef uint32_t u32; /* portable 32-bit integer */
 struct __attribute__((packed)) entry {
@@ -206,38 +209,74 @@ bool is_good_pair(u64 k1, u64 k2) {
 int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 	double start = wtime();
 	u64 N = 1ull << n;
-	for (u64 x = (my_rank * N) / p; x < ((my_rank + 1) * N) / p;
-	     x++) {  // loop over all possible combinations x (in decimal)
+
+	/* STEP 1: Build partitioned dictionary.
+	 * Logical step: Process i holds all keys respective to their rank
+	 * (key % i == 0).*/
+
+	struct u64_darray *dict_zx = malloc(p * sizeof(struct u64_darray));
+	for (int rank = 0; rank < p; rank++)
+		initialize_u64_darray(
+		    &(dict_zx[rank]),
+		    2 * N /
+			(p * p));  // Expected amount of z and x for each rank
+	for (u64 x = (my_rank * N) / p; x < ((my_rank + 1) * N) / p; x++) {
 		u64 z = f(x);
-		dict_insert(z, x);
+		int dest_rank = z % p;
+		append(&(dict_zx[dest_rank]), z);
+		append(&(dict_zx[dest_rank]), x);
 	}
+
+	u64 *dict_zx_recv;
+	int dict_zx_recv_size = exchange(&dict_zx_recv, dict_zx, p, my_rank);
+	free(dict_zx);
+
+	for (int i = 0; i < dict_zx_recv_size - 1; i += 2)
+		dict_insert(dict_zx_recv[i], dict_zx_recv[i + 1]);
+
+	free(dict_zx_recv);
 
 	double mid = wtime();
 	printf("Fill: %.1fs\n", mid - start);
 
-	int nres = 0;
-	u64 ncandidates = 0;
-	u64 x[256 * p];
-	u64 k1[16], k2[16];
+	/* STEP 2:
+	 * Attribute zs to their repective processes.
+	 * Logical step: Look for the key in the dictionary of the process who
+	 * could potentially have it (dest_rank = z % p).
+	 * Since we don't know exactly how many there are per process, we use
+	 * dynammic arrays and initialize them to their expected capacity
+	 * (N/(p*p)). */
+
+	struct u64_darray *dict_zy = malloc(p * sizeof(struct u64_darray));
+	for (int rank = 0; rank < p; rank++)
+		initialize_u64_darray(
+		    &(dict_zy[rank]),
+		    2 * N / (p * p));  // Expected amount of z for each rank
 
 	for (u64 y = (my_rank * N) / p; y < ((my_rank + 1) * N) / p; y++) {
 		u64 z = g(y);
+		int dest_rank = z % p;
+		// Ask process their_rank s.t. z%p==their_rank
+		// He is the only one who potentially has it
+		append(&(dict_zy[dest_rank]), z);
+		append(&(dict_zy[dest_rank]), y);
+	}
 
-		u64 Z[p];
-		Z[my_rank] = z;
+	u64 *dict_zy_recv;
 
-		// a process waits for everyone while he could actually start
-		// computing with what he has already received (non-blocking)
-		MPI_Allgather(MPI_IN_PLACE, 0, MPI_UINT64_T, Z, 1, MPI_UINT64_T,
-			      MPI_COMM_WORLD);
-
-		int nx = 0;
-		for (int k = 0; k < p; k++) {
-			nx += dict_probe(Z[k], 256 * p, x + nx);
-		}
-
-		// set flag if data from process rank is ready, then check
-		// is_good_pair
+	int dict_zy_recv_size = exchange(&dict_zy_recv, dict_zy, p, my_rank);
+	free(dict_zy);
+	
+	/* STEP 3:
+	 * Now look up my zs in my local dictionaries.*/
+	int nres = 0;
+	u64 ncandidates = 0;
+	u64 x[256];
+	u64 k1[16], k2[16];
+	for (int i = 0; i < dict_zy_recv_size; i += 2) {
+		u64 z = dict_zy_recv[i];
+		u64 y = dict_zy_recv[i + 1];
+		int nx = dict_probe(z, 256, x);
 		assert(nx >= 0);
 		ncandidates += nx;
 		for (int i = 0; i < nx; i++)
@@ -249,6 +288,11 @@ int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 				nres += 1;
 			}
 	}
+	free(dict_zy_recv);
+
+	/* STEP 4:
+	 * Gather all locally found solutions into root.*/
+
 	int *global_nres =
 	    NULL;	     // Array to store nres values from each process
 	int *displs = NULL;  // Array to store displacements for gathered data
@@ -260,8 +304,8 @@ int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 	// Gather nres from all processes to the root
 	MPI_Gather(&nres, 1, MPI_INT, global_nres, 1, MPI_INT, 0,
 		   MPI_COMM_WORLD);
-	// Calculate displacements and total size of gathered arrays on the root
-	// process
+	// Calculate displacements and total size of gathered arrays on
+	// the root process
 	int total_nres = 0;
 	if (my_rank == 0) {
 		displs[0] = 0;
@@ -274,7 +318,8 @@ int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 		*K1 = malloc(total_nres * sizeof(u64));
 		*K2 = malloc(total_nres * sizeof(u64));
 	}
-	// Gather k1 and k2 from all processes into K1 and K2 on the root
+	// Gather k1 and k2 from all processes into K1 and K2 on the
+	// root
 	MPI_Gatherv(k1, nres, MPI_UNSIGNED_LONG_LONG, *K1, global_nres, displs,
 		    MPI_UNSIGNED_LONG_LONG, 0, MPI_COMM_WORLD);
 	MPI_Gatherv(k2, nres, MPI_UNSIGNED_LONG_LONG, *K2, global_nres, displs,
@@ -288,8 +333,8 @@ int golden_claw_search(int maxres, u64 **K1, u64 **K2, int my_rank, int p) {
 		}
 
 		/*
-		printf("Probe: %.1fs. %" PRId64 " candidate pairs tested\n",
-		       wtime() - mid, ncandidates);
+		printf("Probe: %.1fs. %" PRId64 " candidate pairs
+		tested\n", wtime() - mid, ncandidates);
 		*/
 	}
 	return total_nres;
@@ -319,7 +364,7 @@ void process_command_line_options(int argc, char **argv) {
 		switch (ch) {
 			case 'n':
 				n = atoi(optarg);
-				mask = (1 << n) - 1;
+				mask = (1ull << n) - 1;
 				break;
 			case '0':
 				set |= 1;
@@ -355,10 +400,9 @@ int main(int argc, char **argv) {
 	MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &p);
 	printf("p=%d\n", p);
-	dict_setup(1.125 * (1ull << n) /
-		   p);	// If not divisable no problem because hash table has
-			// more space allocated than necessary.
-
+	u64 s = (u64)(n < 10 ? 1.125 * (1ull << n) : 1.125 * (1ull << n) / p);
+	dict_setup(s);	// If not divisable no problem because hash table
+			// has more space allocated than necessary.
 	/* search */
 	u64 *K1, *K2;
 	double start_time, end_time;
