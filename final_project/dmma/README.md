@@ -69,9 +69,9 @@ From the root of the project:
 
 ### Requirements
 
-```markdown
+
 - MPI (Message Passing Interface for all but the original version)
-- OpenMP (for parallel processing in the 4th and 5th versions)
-- AVX2 (for SIMD instructions in the 5th version)
+- OpenMP (for parallel processing in the 3th and 4th versions)
+- AVX2 (for SIMD instructions in the 4th version)
 - CMake for building the project
-```
+
