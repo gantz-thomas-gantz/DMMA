@@ -9,9 +9,9 @@ The project contains several versions of the algorithm, each building on the pre
 ### Versions:
 
 1. **v1**: Minimal MPI usage to distribute computations across multiple nodes.
-2. **v3**: Full MPI usage to fully parallelize the algorithm across multiple nodes.
-3. **v4**: Full MPI and OpenMP usage for both distributed and shared-memory parallelism.
-4. **v5**: Full MPI, OpenMP, and AVX2 usage.
+2. **v2**: Full MPI usage to fully parallelize the algorithm across multiple nodes.
+3. **v3**: Full MPI and OpenMP usage for both distributed and shared-memory parallelism.
+4. **v4**: Full MPI, OpenMP, and AVX2 usage.
 
 ### Directory Structure:
 
