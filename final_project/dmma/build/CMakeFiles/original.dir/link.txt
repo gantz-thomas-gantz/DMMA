@@ -1,1 +1,0 @@
-/usr/bin/cc  -O3 -fopenmp -mavx2 -Wall -Wextra CMakeFiles/original.dir/src/mitm_original.c.o -o original  -Wl,-rpath,/usr/lib/x86_64-linux-gnu/openmpi/lib /usr/lib/x86_64-linux-gnu/openmpi/lib/libmpi.so 
