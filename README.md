@@ -60,16 +60,13 @@ Adjust the file accordingly and run it with the amount of nodes equal to the amo
 ### Build Instructions
 From the root of the project:
 **Create the build directory and make file, compile and execute**:
-
-   ```bash
-   cmake -B  build
-   cmake --build build
-   mpiexec <mpiexec arguments> build/<executable> <executable arguments>
-	 ```
+```bash
+cmake -B  build
+cmake --build build
+mpiexec <mpiexec arguments> build/<executable> <executable arguments>
+```
 
 ### Requirements
-
-
 - MPI (Message Passing Interface for all but the original version)
 - OpenMP (for parallel processing in the 3th and 4th versions)
 - AVX2 (for SIMD instructions in the 4th version)
